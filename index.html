@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathFinder — найди своё направление</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08080c;
+  --bg-soft:#0d0d13;
+  --surface:rgba(255,255,255,.045);
+  --surface-hover:rgba(255,255,255,.075);
+  --border:rgba(255,255,255,.09);
+  --border-strong:rgba(255,255,255,.16);
+  --text:#f3f3f6;
+  --text-dim:#9797a6;
+  --text-faint:#616170;
+  --violet:#8b7cff;
+  --teal:#49d6c4;
+  --gold:#f2c14e;
+  --danger:#ff6b6b;
+  --grad: linear-gradient(120deg,#8b7cff,#49d6c4);
+  --radius:22px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:
+    radial-gradient(1100px 600px at 15% -10%, rgba(139,124,255,.16), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(73,214,196,.10), transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:'Manrope',sans-serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+::selection{background:rgba(139,124,255,.35);}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+.topbar{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(14px);
+  background:rgba(8,8,12,.65);
+  border-bottom:1px solid var(--border);
+}
+.topbar-inner{
+  max-width:1080px;margin:0 auto;padding:16px 24px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:-.02em;}
+.logo-dot{width:9px;height:9px;border-radius:3px;background:var(--grad);}
+.nav-links{display:flex;gap:6px;align-items:center;}
+.nav-link{
+  padding:8px 14px;border-radius:100px;font-size:14px;color:var(--text-dim);
+  border:1px solid transparent;transition:all .2s ease;
+}
+.nav-link:hover{color:var(--text);background:var(--surface);}
+.nav-link.active{color:var(--text);background:var(--surface);border-color:var(--border);}
+
+section{padding:96px 0;}
+.section-tight{padding:64px 0;}
+
+/* HERO */
+.hero{padding:120px 0 80px;text-align:center;position:relative;}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 16px;border-radius:100px;border:1px solid var(--border-strong);
+  background:var(--surface);font-size:13px;color:var(--text-dim);margin-bottom:28px;
+  font-family:'IBM Plex Mono',monospace;
+}
+.eyebrow span{color:var(--teal);}
+.hero h1{
+  font-size:clamp(34px,5.4vw,62px);line-height:1.06;letter-spacing:-.03em;
+  font-weight:800;margin:0 0 22px;max-width:820px;margin-left:auto;margin-right:auto;
+}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hero p{
+  font-size:18px;color:var(--text-dim);max-width:560px;margin:0 auto 40px;line-height:1.55;
+}
+.btn{
+  border:none;border-radius:14px;padding:15px 28px;font-size:15px;font-weight:600;
+  display:inline-flex;align-items:center;gap:8px;transition:all .22s cubic-bezier(.2,.8,.2,1);
+}
+.btn-primary{
+  background:var(--grad);color:#07070a;
+  box-shadow:0 8px 30px -8px rgba(139,124,255,.55);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 34px -8px rgba(139,124,255,.7);}
+.btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);}
+.btn-ghost:hover{background:var(--surface-hover);transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn:disabled{opacity:.35;pointer-events:none;}
+
+/* CARDS GRID */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
+@media(max-width:820px){.grid3{grid-template-columns:1fr;}.grid2{grid-template-columns:1fr;}}
+
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:30px;backdrop-filter:blur(10px);
+  animation:rise .6s cubic-bezier(.2,.8,.2,1) both;
+  transition:border-color .25s ease, transform .25s ease, background .25s ease;
+}
+.card:hover{border-color:var(--border-strong);background:var(--surface-hover);}
+@keyframes rise{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+.step-num{
+  font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--teal);margin-bottom:16px;
+}
+.card h3{margin:0 0 10px;font-size:19px;letter-spacing:-.01em;}
+.card p{margin:0;color:var(--text-dim);font-size:14.5px;line-height:1.55;}
+
+.section-head{text-align:center;max-width:560px;margin:0 auto 48px;}
+.section-head .eyebrow{margin-bottom:16px;}
+.section-head h2{font-size:clamp(26px,3.4vw,38px);letter-spacing:-.02em;margin:0 0 12px;font-weight:800;}
+.section-head p{color:var(--text-dim);font-size:15.5px;margin:0;}
+
+.stats-row{display:flex;justify-content:center;gap:0;flex-wrap:wrap;margin-top:56px;border-top:1px solid var(--border);padding-top:40px;}
+.stat{flex:1;min-width:200px;text-align:center;padding:0 20px;}
+.stat .num{font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.stat .label{color:var(--text-dim);font-size:13.5px;margin-top:6px;}
+
+footer{padding:50px 0 70px;text-align:center;color:var(--text-faint);font-size:13px;}
+
+/* QUIZ */
+.quiz-shell{max-width:640px;margin:60px auto;padding:0 24px;}
+.progress-outer{height:5px;border-radius:10px;background:var(--surface);overflow:hidden;margin-bottom:36px;border:1px solid var(--border);}
+.progress-inner{height:100%;background:var(--grad);border-radius:10px;transition:width .5s cubic-bezier(.2,.8,.2,1);}
+.q-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.q-count{font-family:'IBM Plex Mono',monospace;color:var(--text-dim);font-size:13px;}
+.q-text{font-size:23px;font-weight:700;letter-spacing:-.01em;line-height:1.35;margin:0 0 30px;font-family:'Manrope',sans-serif;animation:rise .45s ease both;}
+.opt-list{display:flex;flex-direction:column;gap:10px;}
+.opt{
+  text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:17px 20px;font-size:15px;color:var(--text);transition:all .18s ease;
+  animation:rise .45s ease both;
+}
+.opt:hover{border-color:var(--violet);background:var(--surface-hover);transform:translateX(3px);}
+.quiz-nav{display:flex;justify-content:space-between;margin-top:26px;}
+.link-btn{background:none;border:none;color:var(--text-faint);font-size:13.5px;padding:8px;}
+.link-btn:hover{color:var(--text-dim);}
+
+/* RESULTS */
+.results-shell{max-width:820px;margin:50px auto 0;padding:0 24px;}
+.result-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:26px;padding:30px;
+  margin-bottom:18px;animation:rise .55s ease both;
+}
+.result-top{display:flex;align-items:center;gap:20px;}
+.medal{font-size:30px;}
+.ring-wrap{position:relative;width:74px;height:74px;flex-shrink:0;}
+.ring-wrap svg{transform:rotate(-90deg);}
+.ring-pct{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;
+}
+.result-title{flex:1;}
+.result-title h3{margin:0 0 3px;font-size:20px;}
+.result-title .cat{color:var(--text-faint);font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;}
+.result-body{margin-top:20px;padding-top:20px;border-top:1px solid var(--border);}
+.reasons{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px;}
+.reason-chip{background:rgba(73,214,196,.1);border:1px solid rgba(73,214,196,.25);color:#8fe8db;font-size:13px;padding:6px 12px;border-radius:100px;}
+.spec-list{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 20px;}
+.spec-chip{background:var(--surface);border:1px solid var(--border);font-size:12.5px;padding:5px 11px;border-radius:8px;color:var(--text-dim);}
+
+/* PRACTICE */
+.day-card{max-width:600px;margin:50px auto;padding:0 24px;}
+.day-badge{
+  display:inline-flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;
+  font-size:13px;color:var(--teal);background:rgba(73,214,196,.08);border:1px solid rgba(73,214,196,.2);
+  padding:6px 14px;border-radius:100px;margin-bottom:20px;
+}
+.day-dots{display:flex;gap:6px;margin-bottom:24px;}
+.day-dot{width:26px;height:5px;border-radius:4px;background:var(--border);transition:background .3s;}
+.day-dot.done{background:var(--teal);}
+.day-dot.current{background:var(--violet);}
+.task-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:32px;
+  animation:rise .5s ease both;
+}
+.task-box h3{font-size:21px;margin:0 0 12px;font-weight:700;}
+.task-box p{color:var(--text-dim);font-size:15px;line-height:1.6;margin:0;}
+.feedback-block{margin-top:28px;padding-top:24px;border-top:1px solid var(--border);}
+.f-row{margin-bottom:20px;}
+.f-label{font-size:13.5px;color:var(--text-dim);margin-bottom:10px;}
+.stars{display:flex;gap:6px;}
+.star{font-size:24px;color:var(--border-strong);transition:color .15s;background:none;border:none;padding:2px;}
+.star.on{color:var(--gold);}
+.toggle2{display:flex;gap:8px;}
+.toggle2 button{
+  flex:1;padding:11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-dim);font-size:14px;font-weight:500;transition:all .18s;
+}
+.toggle2 button.sel{background:var(--surface-hover);border-color:var(--violet);color:var(--text);}
+
+/* ROADMAP */
+.roadmap-shell{max-width:760px;margin:50px auto;padding:0 24px;}
+.roadmap-head{text-align:center;margin-bottom:40px;}
+.overall-bar{max-width:420px;margin:20px auto 0;height:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.overall-fill{height:100%;background:var(--grad);transition:width .6s ease;}
+.month-block{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:26px 28px;
+  margin-bottom:16px;animation:rise .5s ease both;
+}
+.month-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.month-head h3{margin:0;font-size:17px;}
+.month-num{font-family:'IBM Plex Mono',monospace;color:var(--violet);font-size:13px;}
+.check-item{display:flex;align-items:flex-start;gap:12px;padding:9px 0;font-size:14.5px;color:var(--text-dim);cursor:pointer;}
+.check-item.checked{color:var(--text-faint);text-decoration:line-through;}
+.checkbox{
+  width:19px;height:19px;border-radius:6px;border:1.5px solid var(--border-strong);flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.checkbox.on{background:var(--grad);border-color:transparent;}
+
+/* PROFILE */
+.profile-shell{max-width:820px;margin:50px auto;padding:0 24px;}
+.profile-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;}
+@media(max-width:760px){.profile-grid{grid-template-columns:1fr;}}
+.mini-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;}
+.mini-card h4{margin:0 0 14px;font-size:14px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+.hist-row{display:flex;justify-content:space-between;font-size:14px;padding:9px 0;border-bottom:1px solid var(--border);}
+.hist-row:last-child{border-bottom:none;}
+.achv{display:inline-flex;align-items:center;gap:8px;background:var(--surface-hover);border:1px solid var(--border);padding:8px 14px;border-radius:100px;font-size:13px;margin:0 8px 8px 0;}
+
+.empty{color:var(--text-faint);font-size:14px;font-style:italic;}
+.center-actions{text-align:center;margin-top:36px;}
+.fadein{animation:fadeIn .5s ease both;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+/* ===== RESULTS: pros/cons/tools ===== */
+.pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+@media(max-width:560px){.pros-cons{grid-template-columns:1fr;}}
+.pc-col h5{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);font-weight:600;}
+.pc-col.pros h5{color:#8fe8db;}
+.pc-col.cons h5{color:#ff9d9d;}
+.pc-col ul{margin:0;padding-left:18px;color:var(--text-dim);font-size:13.5px;line-height:1.6;}
+.pc-col li{margin-bottom:4px;}
+.tool-chip{background:rgba(139,124,255,.08);border:1px solid rgba(139,124,255,.22);color:#c8c1ff;font-size:12.5px;padding:5px 11px;border-radius:8px;}
+.income-box{margin-top:16px;padding:14px 16px;border-radius:14px;background:rgba(242,193,78,.07);border:1px solid rgba(242,193,78,.22);font-size:13.5px;color:var(--text-dim);line-height:1.55;}
+.income-box b{color:var(--gold);}
+
+/* ===== PRACTICE: 7-step modules ===== */
+.step-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}
+.step-top h3{margin:0;font-size:21px;font-weight:700;}
+.diff-stars{font-size:14px;color:var(--gold);white-space:nowrap;letter-spacing:1px;}
+.diff-stars .off{color:var(--border-strong);}
+.result-chip{
+  display:inline-flex;align-items:center;gap:8px;margin:8px 0 22px;padding:9px 14px;border-radius:12px;
+  background:rgba(73,214,196,.08);border:1px solid rgba(73,214,196,.22);color:#8fe8db;font-size:13.5px;font-weight:500;
+}
+.task-section{margin-bottom:18px;}
+.task-section:last-of-type{margin-bottom:0;}
+.task-section-label{font-size:13px;font-weight:600;color:var(--teal);margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
+.task-section p{margin:0;color:var(--text-dim);font-size:14.5px;line-height:1.6;}
+
+/* ===== ROADMAP: 24-week ===== */
+.skills-panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px;margin-bottom:24px;}
+.skills-panel h4{margin:0 0 10px;font-size:13px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+.skill-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(139,124,255,.09);border:1px solid rgba(139,124,255,.22);color:#c8c1ff;font-size:12.5px;padding:5px 11px;border-radius:100px;margin:0 6px 6px 0;}
+.week-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px 26px;
+  margin-bottom:14px;animation:rise .5s ease both;
+}
+.week-card.done{border-color:rgba(73,214,196,.35);}
+.week-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.week-head h3{margin:0;font-size:16px;}
+.week-num{font-family:'IBM Plex Mono',monospace;color:var(--violet);font-size:12.5px;}
+.week-main{font-size:14.5px;color:var(--text);line-height:1.55;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.week-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-bottom:16px;font-size:13px;color:var(--text-dim);line-height:1.5;}
+@media(max-width:640px){.week-grid{grid-template-columns:1fr;}}
+.week-grid b{color:var(--text);font-weight:600;}
+.checkpoint-banner{
+  display:flex;align-items:center;gap:14px;margin:6px 0 20px;padding:18px 22px;border-radius:18px;
+  background:linear-gradient(120deg,rgba(139,124,255,.14),rgba(73,214,196,.10));
+  border:1px solid rgba(139,124,255,.3);
+}
+.checkpoint-banner .cp-icon{font-size:26px;}
+.checkpoint-banner h4{margin:0 0 3px;font-size:15.5px;}
+.checkpoint-banner p{margin:0;color:var(--text-dim);font-size:13px;line-height:1.5;}
+.checkpoint-banner.reached{border-color:rgba(73,214,196,.45);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="logo-dot"></span>PathFinder</div>
+    <div class="nav-links" id="navLinks"></div>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<script>
+const GROUPS = {
+  dev:        {label:"Разработка",            emoji:"💻"},
+  vibecoding: {label:"Вайб-кодинг",            emoji:"🤖"},
+  gamedev:    {label:"Геймдев",                emoji:"🎮"},
+  cyber:      {label:"Кибербезопасность",      emoji:"🛡️"},
+  data:       {label:"Data Science & ML",      emoji:"🧠"},
+  aiagents:   {label:"AI-агенты и автоматизация", emoji:"⚡"},
+  design:     {label:"UX/UI и продуктовый дизайн", emoji:"🎨"},
+  graphic3d:  {label:"Графика, моушн и 3D",    emoji:"✏️"},
+  aicreative: {label:"AI-креатив",             emoji:"✨"},
+  video:      {label:"Видео и медиа",          emoji:"🎬"},
+  content:    {label:"Контент и копирайтинг",  emoji:"✍️"},
+  marketing:  {label:"Маркетинг",              emoji:"📈"},
+  business:   {label:"E-commerce и цифровой бизнес", emoji:"🚀"},
+  finance:    {label:"Финансы и трейдинг",     emoji:"💰"},
+  web3:       {label:"Web3 и блокчейн",        emoji:"⛓️"},
+  peoplesales:{label:"Люди и продажи",         emoji:"🤝"},
+  solo:       {label:"Соло-предпринимательство", emoji:"🧩"},
+};
+
+const SPHERES = {
+  fe:{name:"Frontend-разработка",group:"dev",emoji:"💻",
+    desc:"Ты создаёшь то, что пользователь видит и с чем взаимодействует в браузере или приложении — интерфейсы, анимации, логику на стороне клиента.",
+    pros:["Высокий спрос и удалённая работа по всему миру","Быстро видно результат — сделал компонент, сразу видишь его на экране","Низкий порог входа по сравнению с другими направлениями в IT"],
+    cons:["Технологии меняются каждые 1-2 года, нужно постоянно учиться","На старте высокая конкуренция среди джунов","Рутина вёрстки может наскучить без интереса к логике"],
+    tools:["React","TypeScript","Figma","Chrome DevTools","Git"],
+    skills:["HTML/CSS/JS","Компонентный подход","Работа с API","Адаптивная вёрстка"],
+    specialties:["React-разработчик","Frontend Engineer","Верстальщик","App Developer"],
+    why:["любишь разбираться в деталях","комфортно работать сосредоточенно","интересны технологии","важна логика в решениях"],
+    firstIncome:"Первые деньги обычно приходят с фриланс-заданий на вёрстку лендингов (3–5 тыс. ₽ за экран) или стажировки — уже через 2–3 месяца системного обучения."},
+  be:{name:"Backend-разработка",group:"dev",emoji:"⚙️",
+    desc:"Ты строишь «двигатель» продукта — серверы, базы данных, API — то, что обеспечивает работу сервиса изнутри.",
+    pros:["Одна из самых высокооплачиваемых junior-позиций в IT","Понимание бэкенда открывает путь в архитектуру и DevOps","Задачи логические и системные, редко бывают скучными"],
+    cons:["Дольше собирается первое портфолио — нет «красивой картинки»","Требует более глубокого понимания алгоритмов и баз данных","Ошибки сложнее находить, чем во фронтенде"],
+    tools:["Node.js / Python","PostgreSQL","Docker","Postman","Git"],
+    skills:["Проектирование API","Работа с базами данных","Основы алгоритмов","Безопасность данных"],
+    specialties:["Backend-разработчик","DevOps-инженер","Data Engineer","Архитектор систем"],
+    why:["любишь системное мышление","ценишь стабильность","силён в логике и алгоритмах","внимателен к деталям"],
+    firstIncome:"Первый доход — это обычно небольшой API-проект на фрилансе или тестовый месяц стажировки; на выход к первой оплате уходит в среднем 3–4 месяца практики."},
+  fullstack:{name:"Full-stack разработка",group:"dev",emoji:"🧩",
+    desc:"Ты одинаково уверенно собираешь и то, что видит пользователь, и то, что работает под капотом — от интерфейса до базы данных.",
+    pros:["Можешь в одиночку собрать продукт целиком — ценно для стартапов","Более широкий рынок вакансий, чем узкая специализация","Отличная база для собственного SaaS или фриланс-практики"],
+    cons:["Сложнее выйти на экспертный уровень сразу в двух областях","Легко «размазаться» и нигде не стать по-настоящему сильным","Нужно вдвое больше времени на освоение стека"],
+    tools:["React + Node.js","PostgreSQL","Docker","Vercel/Render","Git"],
+    skills:["Frontend и backend основы","Проектирование архитектуры","Деплой приложений","Работа с базами данных"],
+    specialties:["Full-stack Developer","Product Engineer","Founding Engineer","Solo-разработчик"],
+    why:["любишь видеть продукт целиком","интересны технологии","хочешь строить свои проекты","готов учиться широко"],
+    firstIncome:"Многие full-stack разработчики зарабатывают первые деньги, собирая MVP для чужого стартапа за 4-6 недель — такие заказы стоят от 40 000 ₽."},
+  mobile:{name:"Разработка мобильных приложений",group:"dev",emoji:"📱",
+    desc:"Ты создаёшь приложения для iOS и Android — от простых утилит до сложных сервисов, которыми пользуются миллионы.",
+    pros:["Мобильные разработчики стабильно в топе по зарплатам","Готовое приложение — эффектный пункт портфолио","Растущий рынок из-за мобильного трафика"],
+    cons:["Нужно учить платформенные особенности (iOS/Android отдельно)","Публикация в сторах требует терпения и бюрократии","Цикл разработки длиннее, чем у веба"],
+    tools:["Swift / Kotlin","Flutter или React Native","Xcode / Android Studio","Firebase","Git"],
+    skills:["Проектирование мобильного UI","Работа с API","Публикация в App Store/Google Play","Оптимизация производительности"],
+    specialties:["iOS-разработчик","Android-разработчик","Flutter Developer","Mobile Engineer"],
+    why:["интересны технологии","любишь доводить продукт до релиза","важна логика и внимание к деталям","хочешь видеть продукт в руках у людей"],
+    firstIncome:"Первый заработок — фриланс-доработка чужого приложения или публикация собственного простого приложения с donation/подпиской."},
+  gamedev:{name:"Разработка игр (Unity, Unreal)",group:"gamedev",emoji:"🎮",
+    desc:"Ты создаёшь игровые механики, уровни и системы — от простых мобильных игр до амбициозных проектов на Unreal Engine.",
+    pros:["Работа на стыке технологий и творчества","Огромное и активное комьюнити и туториалы","Можно выпускать собственные игры соло или в маленькой команде"],
+    cons:["Индустрия известна переработками (crunch)","Высокая конкуренция, особенно на мобильном рынке","Долгий путь от идеи до готовой игры"],
+    tools:["Unity","Unreal Engine","C# / C++","Blender","Git"],
+    skills:["Игровая логика и физика","Левел-дизайн","Оптимизация под устройства","Работа с ассетами"],
+    specialties:["Game Developer","Unity Developer","Gameplay Programmer","Level Designer"],
+    why:["любишь и технологии, и творчество","готов к долгим проектам","интересна интерактивность","важно видеть, как люди играют в твоё"],
+    firstIncome:"Первые деньги — это small paid jobs на биржах геймдева (создание уровня, скрипта механики) или доход с первой мини-игры в Steam/на маркетах."},
+  cyber:{name:"Кибербезопасность",group:"cyber",emoji:"🛡️",
+    desc:"Ты находишь уязвимости и защищаешь системы, данные и людей от атак — от анализа кода до тестирования на проникновение.",
+    pros:["Один из самых дефицитных навыков на рынке труда","Высокие зарплаты уже на junior-уровне","Постоянные интеллектуальные вызовы, а не рутина"],
+    cons:["Высокий порог входа — нужны крепкие основы сетей и ОС","Ответственность и стресс при реальных инцидентах","Формальные требования (сертификаты) в части вакансий"],
+    tools:["Kali Linux","Burp Suite","Wireshark","Nmap","OWASP ZAP"],
+    skills:["Основы сетей и Linux","Пентестинг веб-приложений","Анализ уязвимостей","Основы криптографии"],
+    specialties:["Pentester","Security Analyst","SOC-аналитик","Bug Bounty Hunter"],
+    why:["внимателен к деталям","любишь находить слабые места в системах","аналитическое мышление","интересны технологии и риск"],
+    firstIncome:"Первый заработок часто приходит через bug bounty программы (HackerOne, Standoff) — одна найденная уязвимость может принести от нескольких тысяч рублей."},
+  datasci:{name:"Data Science",group:"data",emoji:"📊",
+    desc:"Ты находишь закономерности в данных и превращаешь их в решения — от аналитики до прогнозных моделей.",
+    pros:["Один из самых высокооплачиваемых треков в IT","Применим почти в любой индустрии — от ритейла до медицины","Постоянная работа с интересными исследовательскими задачами"],
+    cons:["Требует крепкой математической базы (статистика, линейная алгебра)","Долгий путь от новичка до уверенного специалиста","Много рутинной очистки данных перед «интересной» частью"],
+    tools:["Python","Pandas / NumPy","Jupyter Notebook","SQL","scikit-learn"],
+    skills:["Статистика и вероятность","Анализ и визуализация данных","Построение ML-моделей","SQL-запросы"],
+    specialties:["Data Scientist","Data Analyst","BI-аналитик","Research Scientist"],
+    why:["любишь анализировать данные","аналитический склад ума","любишь эксперименты","интересны новые технологии"],
+    firstIncome:"Первые деньги — аналитические фриланс-задачи (дашборд, отчёт для бизнеса) или junior-позиция аналитика данных, куда берут за сильное портфолио на Kaggle."},
+  ml:{name:"Машинное обучение (ML)",group:"data",emoji:"🤖",
+    desc:"Ты обучаешь модели решать задачи — от рекомендательных систем до генеративного ИИ — и внедряешь их в реальные продукты.",
+    pros:["Одна из самых востребованных и перспективных областей IT","Прямой доступ к самым передовым технологиям (LLM, компьютерное зрение)","Крайне высокий потолок зарплат"],
+    cons:["Самый долгий и требовательный путь входа во всём IT","Нужна серьёзная математика и понимание нейросетей","Много экспериментов заканчиваются неудачей — нужна устойчивость"],
+    tools:["PyTorch","Hugging Face","Python","Google Colab","MLflow"],
+    skills:["Основы нейросетей","Работа с готовыми моделями (fine-tuning)","Математика для ML","Деплой моделей в продакшн"],
+    specialties:["ML Engineer","AI Researcher","Applied Scientist","MLOps Engineer"],
+    why:["любишь эксперименты","интересен AI","аналитическое мышление","готов долго концентрироваться на сложной задаче"],
+    firstIncome:"Первый доход обычно приходит через участие в ML-соревнованиях с призовыми (Kaggle) или через junior-роль/стажировку в AI-команде."},
+  vibecoding:{name:"Вайб-кодинг (Claude Code, Cursor, Windsurf)",group:"vibecoding",emoji:"🪄",
+    desc:"Ты создаёшь работающие продукты, управляя AI-агентами и AI-редакторами кода — описываешь задачу на естественном языке и собираешь приложения в разы быстрее классической разработки.",
+    pros:["Самый быстрый способ в 2026 году превратить идею в работающий продукт","Не требует глубокого знания синтаксиса, чтобы начать","Совмещается с любой другой профессией как супер-навык"],
+    cons:["Пока мало устоявшихся стандартов и лучших практик","Легко получить код, который сам не до конца понимаешь","Работодатели ещё формируют требования к этой роли"],
+    tools:["Claude Code","Cursor","Windsurf","GitHub","Vercel"],
+    skills:["Промпт-инжиниринг для кода","Чтение и проверка сгенерированного кода","Базовое понимание архитектуры приложений","Быстрое прототипирование"],
+    specialties:["AI-native разработчик","Индивидуальный разработчик продуктов","Rapid Prototyper","Technical Founder"],
+    why:["интересен AI","желание создавать продукты","желание автоматизировать процессы","любишь скорость и эксперименты"],
+    firstIncome:"Первый заработок — это собранный за несколько дней с помощью AI-агента прототип на заказ (лендинг, простой сервис, автоматизация) стоимостью от 15 000 ₽."},
+  aiautomation:{name:"AI-автоматизация бизнеса",group:"aiagents",emoji:"⚙️",
+    desc:"Ты выстраиваешь автоматизированные процессы на базе AI — от обработки заявок до генерации контента — которые экономят бизнесу часы ручной работы.",
+    pros:["Огромный спрос со стороны малого и среднего бизнеса прямо сейчас","Можно начать без глубокого программирования","Понятная монетизация: экономия часов = деньги клиента"],
+    cons:["Нужно разбираться сразу и в бизнес-процессах, и в инструментах","Рынок быстро меняется — сегодняшний стек инструментов завтра устареет","Первым клиентам придётся многое объяснять «на пальцах»"],
+    tools:["Make / n8n","Zapier","OpenAI / Claude API","Airtable","Google Sheets"],
+    skills:["Картирование бизнес-процессов","No-code автоматизация","Работа с API нейросетей","Презентация ROI клиенту"],
+    specialties:["AI Automation Specialist","No-code разработчик","Process Consultant","RevOps"],
+    why:["желание автоматизировать процессы","интерес к AI","предпринимательские способности","аналитическое мышление"],
+    firstIncome:"Первый доход — это одна автоматизация для локального бизнеса (например, бот для приёма заявок), которая обычно стоит от 20 000 до 60 000 ₽."},
+  aiagentsdev:{name:"Создание AI-агентов",group:"aiagents",emoji:"🧠",
+    desc:"Ты проектируешь и собираешь автономных AI-агентов, которые выполняют многошаговые задачи самостоятельно — от исследования до действий во внешних системах.",
+    pros:["Одна из самых горячих тем на рынке разработки в 2026 году","Стык программирования, продукта и AI — интересно и разнообразно","Высокий потенциал дохода как в найме, так и в своих продуктах"],
+    cons:["Область очень молодая — мало устоявшихся практик","Агенты часто ведут себя непредсказуемо, нужно много тестировать","Требует базового программирования и понимания LLM"],
+    tools:["Claude Agent SDK","LangChain / LangGraph","Python","Vector DB (Pinecone)","GitHub"],
+    skills:["Проектирование агентных систем","Работа с LLM API","Инструменты и function calling","Тестирование и отладка агентов"],
+    specialties:["AI Agent Developer","AI Engineer","Applied AI Developer","AI Product Builder"],
+    why:["интерес к AI","аналитическое мышление","желание автоматизировать процессы","способность долго концентрироваться"],
+    firstIncome:"Первый заработок — заказной AI-агент для бизнеса (например, агент поддержки клиентов) или продажа доступа к собственному агенту как микро-SaaS."},
+  aiagency:{name:"AI Automation Agency",group:"aiagents",emoji:"🏢",
+    desc:"Ты строишь агентство, которое внедряет AI-автоматизацию клиентам под ключ — от продаж и упаковки услуги до найма исполнителей.",
+    pros:["Быстро растущая ниша с низким порогом входа в бизнес","Можно начать соло и масштабироваться командой","Повторяемые решения = растущая маржа со временем"],
+    cons:["Нужны одновременно продажи, экспертиза и менеджмент","Первые сделки закрывать тяжелее всего — нет кейсов","Конкуренция быстро растёт вместе с популярностью ниши"],
+    tools:["Make / n8n","CRM (Notion, HubSpot)","Claude / OpenAI API","Calendly","LinkedIn"],
+    skills:["Продажи и переговоры","Упаковка услуги в оффер","Управление проектами","Базовая AI-автоматизация"],
+    specialties:["Founder AI Agency","Fractional Automation Lead","AI Solutions Consultant","Delivery Manager"],
+    why:["предпринимательские способности","желание строить собственный бизнес","коммуникация","желание автоматизировать процессы"],
+    firstIncome:"Первый доход — первый клиент на пилотный проект автоматизации, обычно от 30 000 ₽ за пилот с последующей абонплатой."},
+  promptengineering:{name:"Prompt Engineering",group:"aiagents",emoji:"🔮",
+    desc:"Ты проектируешь промпты и системные инструкции, которые заставляют AI-модели стабильно и качественно решать конкретные задачи.",
+    pros:["Низкий порог входа по сравнению с классической разработкой","Навык, который усиливает почти любую другую профессию","Растущий спрос на экспертизу по работе с LLM в компаниях"],
+    cons:["Профессия ещё формируется, границы роли размыты","Модели быстро меняются — приёмы устаревают","Может восприниматься как «несерьёзная» специализация без портфолио с результатами"],
+    tools:["Claude","ChatGPT","Anthropic Console / Playground","Promptfoo","Notion"],
+    skills:["Структурирование сложных промптов","Тестирование и оценка качества ответов","Понимание ограничений LLM","Документирование промпт-систем"],
+    specialties:["Prompt Engineer","AI Product Consultant","Conversation Designer","LLM QA Specialist"],
+    why:["интерес к AI","внимание к деталям","аналитическое мышление","желание экспериментировать"],
+    firstIncome:"Первый доход — фриланс-задача по настройке AI-ассистента для бизнеса (например, чат-бота поддержки) от 10 000 ₽."},
+  aiconsulting:{name:"AI-консалтинг",group:"aiagents",emoji:"🧭",
+    desc:"Ты помогаешь компаниям понять, где и как внедрить AI с реальной пользой — от аудита процессов до плана внедрения.",
+    pros:["Высокий чек за экспертизу без необходимости самому всё программировать","Востребовано в любой отрасли, где ещё не внедрили AI","Возможность стать признанным экспертом и строить личный бренд"],
+    cons:["Нужен кредит доверия — без кейсов сложно продавать консалтинг","Требует широкого кругозора по инструментам и трендам","Результат консультации не всегда легко измерить клиенту"],
+    tools:["Claude / ChatGPT","Notion","Miro","LinkedIn","Zoom"],
+    skills:["Аудит бизнес-процессов","Презентация решений руководству","Широкая эрудиция в AI-инструментах","Работа с возражениями"],
+    specialties:["AI Consultant","Digital Transformation Advisor","AI Strategy Lead","Independent Advisor"],
+    why:["предпринимательские способности","коммуникация","интерес к AI","желание обучаться всю жизнь"],
+    firstIncome:"Первый доход — оплаченный аудит одного бизнес-процесса клиента на предмет AI-внедрения, обычно от 25 000 ₽."},
+  uxui:{name:"UX/UI Дизайн",group:"design",emoji:"🎨",
+    desc:"Ты проектируешь удобный и красивый опыт использования продукта — от структуры экранов до мелких деталей интерфейса.",
+    pros:["Понятный и быстрый вход через практику в Figma","Портфолио можно собрать без опыта работы — на учебных кейсах","Востребован в любой цифровой компании"],
+    cons:["Высокая конкуренция среди начинающих дизайнеров","Субъективность оценки — фидбэк может быть противоречивым","Нужно одновременно и творческое, и логическое мышление"],
+    tools:["Figma","FigJam","Maze","Notion","Adobe Illustrator"],
+    skills:["Wireframing и прототипирование","UX-исследования","Работа с Design System","Юзабилити-тестирование"],
+    specialties:["UX/UI дизайнер","Product Designer","Interaction Designer","UX-researcher"],
+    why:["внимателен к визуальной эстетике","любишь создавать","мыслишь и логично, и творчески","заботишься об удобстве для людей"],
+    firstIncome:"Первый заработок — редизайн одного экрана для реального малого бизнеса на фрилансе, обычно от 8 000–15 000 ₽ за экран."},
+  productdesign:{name:"Product Design",group:"design",emoji:"🧱",
+    desc:"Ты отвечаешь не только за интерфейс, но и за весь продуктовый опыт — от исследования пользователей до метрик успеха фичи.",
+    pros:["Одна из самых влиятельных ролей в digital-команде","Прямое влияние на бизнес-метрики продукта","Высокий потолок роста до Head of Design/CPO"],
+    cons:["Требует понимания и дизайна, и продукта, и данных одновременно","Больше ответственности и неопределённости, чем в чистом UI","Дольше собирается сильное портфолио с измеримыми результатами"],
+    tools:["Figma","Amplitude / Mixpanel","Notion","Miro","UserTesting"],
+    skills:["Продуктовое мышление","UX-исследования","Работа с метриками","Дизайн-система и юзабилити"],
+    specialties:["Product Designer","Lead Product Designer","UX Strategist","Design-Product Hybrid"],
+    why:["желание создавать продукты","аналитическое мышление","внимание к деталям","желание обучаться всю жизнь"],
+    firstIncome:"Первый доход — участие в продуктовой команде стартапа на part-time или платный аудит UX небольшого продукта."},
+  branding:{name:"Брендинг",group:"design",emoji:"🏷️",
+    desc:"Ты создаёшь визуальную и смысловую идентичность бренда — от логотипа и палитры до голоса и позиционирования.",
+    pros:["Творческая и стратегическая работа одновременно","Высокий чек за комплексные брендинговые проекты","Работы остаются в портфолио надолго и хорошо продают тебя"],
+    cons:["Сложно объективно оценить качество своей работы без опыта","Нужно совмещать дизайн-навыки со стратегическим мышлением","Клиенты часто просят «на глаз» и меняют мнение"],
+    tools:["Adobe Illustrator","Figma","Adobe InDesign","Pinterest / Behance","Canva"],
+    skills:["Логотип и айдентика","Гайдлайны бренда","Типографика","Презентация концепций клиенту"],
+    specialties:["Brand Designer","Identity Designer","Creative Director","Brand Strategist"],
+    why:["сильно творческое мышление","важно визуальное самовыражение","любишь экспериментировать","важна свобода в работе"],
+    firstIncome:"Первые деньги — небольшой айдентика-проект (логотип + минимальный гайд) для локального бизнеса, обычно от 10 000 ₽."},
+  graphic:{name:"Графический дизайн",group:"graphic3d",emoji:"✏️",
+    desc:"Ты создаёшь визуальные образы — постеры, баннеры, иллюстрации, соцсети — то, что оформляет визуальную коммуникацию бренда.",
+    pros:["Самый гибкий по формату вход в дизайн-индустрию","Много заказов на фрилансе даже без диплома","Быстро видно прогресс — каждая работа сразу «готовый продукт»"],
+    cons:["Очень высокая конкуренция и демпинг цен на биржах","Нужно постоянно генерировать новые идеи","Заработок на старте сильно нестабилен"],
+    tools:["Adobe Photoshop","Adobe Illustrator","Figma","Canva","Procreate"],
+    skills:["Композиция и цвет","Типографика","Соцсети-дизайн","Быстрая генерация вариантов"],
+    specialties:["Graphic Designer","Social Media Designer","Illustrator","Print Designer"],
+    why:["сильно творческое мышление","важно визуальное самовыражение","любишь экспериментировать","свободный график тебе близок"],
+    firstIncome:"Первые деньги — оформление карточек товара или постов для соцсетей небольшого бизнеса, от 3 000–5 000 ₽ за комплект."},
+  motion:{name:"Motion Design",group:"graphic3d",emoji:"🌀",
+    desc:"Ты оживляешь статичный дизайн — анимируешь интерфейсы, логотипы, рекламные ролики и заставки.",
+    pros:["Высокий спрос со стороны видео- и рекламной индустрии","Эффектное, «вирусное» портфолио, которое легко показать","Стык дизайна, видео и технической анимации — разнообразная работа"],
+    cons:["Требует освоения сложного технического софта (After Effects)","Рендер и правки отнимают много времени","Сложные проекты требуют серьёзной мощности компьютера"],
+    tools:["After Effects","Cinema 4D","Figma","Lottie","Premiere Pro"],
+    skills:["Принципы анимации (тайминг, easing)","Работа с After Effects","Композинг","Экспорт под веб (Lottie)"],
+    specialties:["Motion Designer","UI Motion Designer","Video Motion Artist","2D Animator"],
+    why:["сильно творческое мышление","любишь визуальные эксперименты","внимателен к деталям","важно движение и динамика"],
+    firstIncome:"Первый доход — анимация логотипа или простой рекламный ролик на 10–15 секунд, обычно от 8 000 ₽."},
+  design3d:{name:"3D-дизайн (Blender)",group:"graphic3d",emoji:"🧊",
+    desc:"Ты создаёшь трёхмерные объекты, сцены и визуализации — от продуктовых рендеров до персонажей и окружений.",
+    pros:["Растущий спрос в рекламе, играх, e-commerce и AI-креативе","Захватывающий творческий процесс с быстрой визуальной отдачей","Blender — мощный бесплатный инструмент, не требующий вложений в софт"],
+    cons:["Долгий путь до фотореалистичного качества","Требовательно к железу (рендер занимает время)","Много технических нюансов (топология, текстуры, свет)"],
+    tools:["Blender","Substance Painter","Marmoset Toolbag","Adobe Photoshop","Sketchfab"],
+    skills:["Моделирование","Текстурирование и материалы","Освещение и рендер","Базовая анимация 3D-объектов"],
+    specialties:["3D Artist","Product Visualizer","3D Generalist","Environment Artist"],
+    why:["сильно творческое мышление","интересны технологии","внимателен к деталям","способность долго концентрироваться"],
+    firstIncome:"Первый доход — 3D-визуализация товара для интернет-магазина, обычно от 5 000 ₽ за модель."},
+  aivideo:{name:"AI-видео (Veo, Runway, Kling)",group:"aicreative",emoji:"🎥",
+    desc:"Ты создаёшь видео с помощью генеративных нейросетей — от рекламных роликов до коротких историй, без камеры и актёров.",
+    pros:["Совершенно новая ниша с низкой конкуренцией прямо сейчас","На порядок дешевле и быстрее классической съёмки","Огромный интерес брендов к AI-креативу как к тренду"],
+    cons:["Инструменты и их возможности меняются каждые несколько месяцев","Пока нет устоявшихся стандартов качества и цен","Результат может быть непредсказуемым — нужно много итераций"],
+    tools:["Runway","Kling","Google Veo","CapCut","ElevenLabs"],
+    skills:["Промпт-инжиниринг для видео","Сторибординг под AI-генерацию","Монтаж и сведение AI-клипов","Работа с AI-озвучкой"],
+    specialties:["AI Video Creator","AI Creative Producer","Generative Filmmaker","AI Ad Creative"],
+    why:["интерес к AI","творчество","желание экспериментировать","интерес к новым технологиям"],
+    firstIncome:"Первый доход — AI-рекламный ролик для локального бренда или продажа готовых AI-видео на стоках, от 5 000 ₽ за ролик."},
+  aidesign:{name:"AI-дизайн (Midjourney, Flux)",group:"aicreative",emoji:"🖼️",
+    desc:"Ты создаёшь иллюстрации, арты и визуалы с помощью генеративных нейросетей — от концепт-артов до готовых рекламных материалов.",
+    pros:["Скорость создания визуала в разы выше классического дизайна","Низкий порог входа для творческих людей без навыков рисования","Постоянно растущий спрос от блогеров и малого бизнеса"],
+    cons:["Юридические вопросы авторства пока не до конца устоялись","Высокая скорость появления новых инструментов и стилей","Клиенты иногда недооценивают труд, считая, что «нейросеть сделает бесплатно»"],
+    tools:["Midjourney","Flux","Adobe Firefly","Photoshop","Figma"],
+    skills:["Промпт-инжиниринг для изображений","Постобработка AI-изображений","Композиция и стиль","Брендинг через AI-визуал"],
+    specialties:["AI Art Director","AI Illustrator","AI Creative Designer","Generative Artist"],
+    why:["творчество","интерес к AI","желание экспериментировать","важно визуальное самовыражение"],
+    firstIncome:"Первый доход — набор AI-иллюстраций для обложек/постов клиента, от 3 000 ₽ за комплект."},
+  aianimation:{name:"AI-анимация",group:"aicreative",emoji:"🌟",
+    desc:"Ты оживляешь AI-изображения и персонажей с помощью генеративных инструментов анимации — от коротких лупов до анимированных историй.",
+    pros:["Очень новая ниша — легко выделиться на старте","Совмещает креатив и технологичность","Востребована в соцсетях, рекламе и играх"],
+    cons:["Инструменты пока нестабильны и часто платные","Мало обучающих материалов на русском языке","Результат сложно контролировать до мелких деталей"],
+    tools:["Runway","Kling","After Effects","Midjourney","CapCut"],
+    skills:["Промпт-инжиниринг для анимации","Композинг AI-клипов","Базовая анимация","Сторителлинг короткой формы"],
+    specialties:["AI Animator","Generative Motion Artist","AI Content Creator","Digital Character Artist"],
+    why:["творчество","интерес к AI","желание экспериментировать","интерес к новым технологиям"],
+    firstIncome:"Первый доход — короткий анимированный AI-ролик под рекламу или соцсети, от 5 000 ₽."},
+  aimusic:{name:"AI-музыка",group:"aicreative",emoji:"🎵",
+    desc:"Ты создаёшь музыку и звуковой дизайн с помощью генеративных нейросетей — от треков под видео до целых песен под заказ.",
+    pros:["Можно создавать музыку без классического музыкального образования","Быстро растущий спрос со стороны блогеров и видеопродакшна","Низкие затраты на старт по сравнению со студией"],
+    cons:["Вопросы авторских прав на AI-музыку пока не устоялись","Сложно добиться уникального узнаваемого звучания","Рынок ещё формирует ценообразование"],
+    tools:["Suno","Udio","Ableton Live","ElevenLabs","Spotify for Artists"],
+    skills:["Промпт-инжиниринг для музыки","Базовое сведение и мастеринг","Музыкальная структура и жанры","Синхронизация музыки с видео"],
+    specialties:["AI Music Producer","Sound Designer","AI Composer","Content Music Creator"],
+    why:["творчество","интерес к AI","любовь к экспериментам","желание создавать продукты"],
+    firstIncome:"Первый доход — саундтрек под рекламный ролик или блогера, от 3 000 ₽ за трек."},
+  aiinfluencer:{name:"Создание AI-инфлюенсеров",group:"aicreative",emoji:"👤",
+    desc:"Ты создаёшь и развиваешь виртуальных AI-персонажей с аудиторией — от внешности и голоса до контент-стратегии и монетизации.",
+    pros:["Совершенно новый формат медиа-бизнеса с низкой конкуренцией","Не зависит от твоей собственной внешности или графика съёмок","Масштабируется — можно вести несколько персонажей одновременно"],
+    cons:["Нужно одновременно быть креатором, продюсером и маркетологом","Аудитория и площадки настороженно относятся к AI-контенту","Юридические и этические вопросы пока не урегулированы"],
+    tools:["Midjourney","Runway","ElevenLabs","Instagram/TikTok","CapCut"],
+    skills:["Разработка персонажа и его истории","AI-генерация консистентного визуала","Контент-стратегия","Монетизация аудитории"],
+    specialties:["AI Character Creator","Virtual Influencer Producer","AI Content Strategist","Digital Persona Designer"],
+    why:["творчество","интерес к AI","желание создавать продукты","любовь к публичности"],
+    firstIncome:"Первый доход — интеграция бренда в контент AI-персонажа после набора первой аудитории, либо продажа AI-контента напрямую."},
+  youtube:{name:"YouTube",group:"video",emoji:"📺",
+    desc:"Ты создаёшь видео-контент на собственном канале — от идеи и сценария до съёмки, монтажа и роста аудитории.",
+    pros:["Возможность построить актив, который работает на тебя годами","Множество источников монетизации: реклама, спонсорство, продукты","Полная творческая свобода в формате и теме"],
+    cons:["Рост канала может занять месяцы и даже годы","Нестабильный доход на старте","Требует дисциплины публиковаться регулярно без гарантии результата"],
+    tools:["Premiere Pro / CapCut","TubeBuddy","Canva","OBS Studio","YouTube Studio"],
+    skills:["Сценарирование видео","Съёмка и монтаж","Работа с аналитикой канала","Построение личного бренда"],
+    specialties:["YouTube-блогер","Видеопродюсер","Контент-креатор","YouTube-стратег"],
+    why:["любовь к публичности","творчество","желание создавать продукты","желание работать самостоятельно"],
+    firstIncome:"Первый доход — интеграция с небольшим брендом после 1000+ подписчиков или партнёрская программа YouTube после выполнения порогов монетизации."},
+  tiktok:{name:"TikTok",group:"video",emoji:"🎵",
+    desc:"Ты создаёшь короткие вертикальные видео, которые быстро набирают охваты за счёт алгоритма и трендов платформы.",
+    pros:["Самый быстрый путь к большим охватам без вложений","Низкий порог входа — снять можно на телефон","Быстрая обратная связь от алгоритма — понятно, что работает"],
+    cons:["Высокая скорость смены трендов — нужно постоянно быть в теме","Монетизация ниже, чем на YouTube, без доп. источников дохода","Просмотры не всегда конвертируются в лояльную аудиторию"],
+    tools:["CapCut","TikTok Creative Center","InShot","Canva","Trends-агрегаторы"],
+    skills:["Работа с трендами и звуками","Съёмка на телефон","Быстрый монтаж","Хук в первые 2 секунды видео"],
+    specialties:["TikTok-креатор","UGC-креатор","Short-form Content Creator","Trend Strategist"],
+    why:["любовь к публичности","творчество","склонность к экспериментам","желание работать самостоятельно"],
+    firstIncome:"Первый доход — коллаборация с брендом за посев продукта или участие в TikTok Creator Fund/Creativity Program после набора первых тысяч подписчиков."},
+  reels:{name:"Instagram Reels",group:"video",emoji:"📷",
+    desc:"Ты создаёшь короткие видео для Instagram — от личного бренда до продвижения продуктов через визуально сильный контент.",
+    pros:["Аудитория Instagram более платёжеспособна, чем в среднем по рынку","Reels хорошо продают личный бренд и услуги","Формат совместим почти с любой нишей"],
+    cons:["Алгоритм и охваты сильно колеблются","Высокая визуальная конкуренция в ленте","Нужно постоянно обновлять формат и подачу"],
+    tools:["CapCut","Instagram Insights","Canva","Lightroom","VSCO"],
+    skills:["Визуальная эстетика кадра","Сторителлинг в коротком формате","Работа с музыкой и трендами","Аналитика вовлечённости"],
+    specialties:["Reels-креатор","Instagram-стратег","Личный бренд-менеджер","Content Creator"],
+    why:["любовь к публичности","творчество","важна визуальная эстетика","желание работать самостоятельно"],
+    firstIncome:"Первый доход — реклама продукта в Reels для локального бренда после первой 1 000–5 000 вовлечённой аудитории."},
+  twitch:{name:"Twitch / стриминг",group:"video",emoji:"🕹️",
+    desc:"Ты ведёшь прямые эфиры — игры, разговорные шоу или обучение — и строишь живое комьюнити вокруг регулярных стримов.",
+    pros:["Прямой и глубокий контакт с аудиторией в реальном времени","Донаты и подписки дают доход раньше, чем на других платформах","Развивает навыки импровизации и публичности"],
+    cons:["Требует много часов эфира регулярно, без гарантии роста","Прямой эфир — стресс и риск непредсказуемых ситуаций","Нужно постоянное оборудование и стабильный интернет"],
+    tools:["OBS Studio","StreamElements","Discord","Twitch Dashboard","Stream Deck"],
+    skills:["Ведение прямого эфира","Работа с чатом и комьюнити","Базовая техническая настройка стрима","Планирование контента эфиров"],
+    specialties:["Стример","Twitch Partner","Community Host","Live Content Creator"],
+    why:["любовь к публичности","желание работать самостоятельно","коммуникация","желание строить сообщество"],
+    firstIncome:"Первый доход — донаты и подписки зрителей после первых регулярных эфиров, обычно после 20-30 часов стабильного стриминга."},
+  podcasts:{name:"Подкасты",group:"video",emoji:"🎙️",
+    desc:"Ты создаёшь аудио- или видеоформатные разговорные шоу — интервью, обсуждения, истории — на регулярной основе.",
+    pros:["Формат с растущей аудиторией и высокой лояльностью слушателей","Отлично работает на построение экспертного личного бренда","Можно совмещать с любой основной профессией"],
+    cons:["Медленный рост аудитории по сравнению с видео-платформами","Монетизация требует значительной базы слушателей","Нужна дисциплина для регулярного гостевого контента"],
+    tools:["Descript","Audacity / Adobe Audition","Riverside.fm","Spotify for Podcasters","Canva"],
+    skills:["Интервьюирование","Аудиомонтаж и сведение","Сценарирование выпусков","Продвижение подкаста"],
+    specialties:["Подкастер","Аудиопродюсер","Ведущий шоу","Контент-стратег"],
+    why:["коммуникация","любовь к публичности","желание создавать продукты","интерес к исследованиям"],
+    firstIncome:"Первый доход — спонсорская интеграция после набора стабильной аудитории (обычно от нескольких тысяч прослушиваний на выпуск)."},
+  videoedit:{name:"Видеомонтаж",group:"video",emoji:"🎞️",
+    desc:"Ты собираешь из отснятого материала законченную историю — ритм, склейки, цветокоррекция, звук — превращая сырой футаж в готовый продукт.",
+    pros:["Востребованный навык у блогеров, брендов и агентств","Можно работать полностью удалённо на фрилансе","Быстро набираемое портфолио — есть с чем показать себя"],
+    cons:["Долгие часы рутинной работы за монтажным столом","Высокая конкуренция на биржах фриланса","Заказчики часто просят бесконечные правки"],
+    tools:["Premiere Pro","DaVinci Resolve","After Effects","CapCut","Adobe Audition"],
+    skills:["Монтажный ритм и склейки","Цветокоррекция","Звуковой монтаж","Работа с ТЗ заказчика"],
+    specialties:["Видеомонтажёр","Video Editor","Reels-монтажёр","Colorist"],
+    why:["творчество","внимание к деталям","желание работать самостоятельно","важна визуальная эстетика"],
+    firstIncome:"Первый доход — монтаж роликов для блогера или бренда на фрилансе, от 2 000–5 000 ₽ за ролик."},
+  ugc:{name:"UGC-контент",group:"video",emoji:"📱",
+    desc:"Ты снимаешь нативные ролики от лица «обычного пользователя» по заказу брендов — честные обзоры и рекомендации, которые не выглядят как реклама.",
+    pros:["Не нужна своя большая аудитория — продаётся сам контент","Низкий порог входа: телефон и естественная подача","Растущий спрос от брендов на честный, «неглянцевый» контент"],
+    cons:["Оплата за ролик ниже, чем у крупных инфлюенсеров","Нужно снимать много вариантов, пока не найдёшь свой стиль","Доход зависит от количества найденных заказчиков"],
+    tools:["Телефон + света","CapCut","UGC-биржи (Insense, JoinBrands)","Canva","Notion (портфолио)"],
+    skills:["Естественная подача на камеру","Быстрая съёмка без студии","Понимание брифов брендов","Монтаж коротких роликов"],
+    specialties:["UGC-креатор","Nano-influencer","Brand Content Creator","Product Reviewer"],
+    why:["любовь к публичности","творчество","желание работать самостоятельно","коммуникация"],
+    firstIncome:"Первый доход — первый оплаченный UGC-ролик для бренда через биржу UGC, обычно от 2 000–5 000 ₽ за видео."},
+  telegram:{name:"Telegram-каналы",group:"content",emoji:"📨",
+    desc:"Ты ведёшь Telegram-канал — от контент-стратегии и текстов до роста аудитории и монетизации через рекламу или свои продукты.",
+    pros:["Telegram — одна из самых лояльных и «тёплых» аудиторий","Низкий порог входа — не нужна съёмка или монтаж","Прямой канал продаж собственных продуктов и услуг"],
+    cons:["Органический рост стал заметно сложнее, чем 3-4 года назад","Ежедневная дисциплина по контенту обязательна","Высокая конкуренция за внимание в перегруженных лентах"],
+    tools:["Telegram Analytics","TGStat","Canva","Notion","Telegram Ads"],
+    skills:["Контент-стратегия и рубрики","Копирайтинг для Telegram","Работа с вовлечённостью аудитории","Продажи через канал"],
+    specialties:["Автор Telegram-канала","Контент-стратег","Community Manager","Telegram Ads Buyer"],
+    why:["желание работать самостоятельно","любишь писать","желание строить сообщество","желание создавать продукты"],
+    firstIncome:"Первый доход — размещение рекламного поста после первой тысячи живых подписчиков, обычно от 1 000–3 000 ₽ за пост."},
+  content:{name:"Копирайтинг и контент-маркетинг",group:"content",emoji:"✍️",
+    desc:"Ты создаёшь тексты и контент, которые информируют, продают и вовлекают — от статей и рассылок до сценариев и лендингов.",
+    pros:["Низкий порог входа — начать можно с одного портфолио-текста","Навык применим в любой индустрии и формате","Можно полностью работать удалённо и по своему графику"],
+    cons:["Демпинг цен на биржах копирайтинга — легко продешевить","Нужно постоянно подстраиваться под разные ниши и тона","AI-инструменты меняют требования к скорости и качеству"],
+    tools:["Google Docs","Grammarly","Claude / ChatGPT","Miro","SEO-инструменты (Ahrefs, Key Collector)"],
+    skills:["Структура текста и сторителлинг","Копирайтинг для продаж","SEO-оптимизация","Адаптация тона под бренд"],
+    specialties:["Копирайтер","Контент-маркетолог","SEO-редактор","UX-райтер"],
+    why:["любишь писать","умеешь объяснять сложное просто","важна свобода в графике","хочешь создавать своё"],
+    firstIncome:"Первый доход — платная статья или серия постов для小 бизнеса на фрилансе, от 500–1 500 ₽ за 1000 знаков."},
+  mkt:{name:"Маркетинг",group:"marketing",emoji:"📈",
+    desc:"Ты помогаешь продуктам находить своих людей — через рекламу, аналитику, воронки и стратегию продвижения.",
+    pros:["Прямая связь между твоими действиями и результатом бизнеса","Востребован в любой компании, от стартапа до корпорации","Можно быстро перейти во фриланс/агентство с портфолио кейсов"],
+    cons:["Рекламные площадки и алгоритмы постоянно меняются","Бюджеты клиентов = стресс и ответственность за чужие деньги","Результат не всегда предсказуем даже у опытных специалистов"],
+    tools:["Meta Ads Manager","Яндекс.Директ","Google Analytics","Telegram Ads","Figma (креативы)"],
+    skills:["Настройка рекламных кампаний","Аналитика и метрики (CPA, ROMI)","Построение воронок продаж","A/B-тестирование"],
+    specialties:["Таргетолог","Performance-маркетолог","Маркетолог-аналитик","Growth Manager"],
+    why:["нравится анализировать людей","любишь динамичную работу","быстро принимаешь решения","интересна психология аудитории"],
+    firstIncome:"Первый доход — ведение рекламного кабинета небольшого бизнеса, от 15 000 ₽ в месяц плюс % от бюджета."},
+  dropship:{name:"Дропшиппинг",group:"business",emoji:"📦",
+    desc:"Ты запускаешь интернет-магазин, продавая товары напрямую от поставщика покупателю, без собственного склада.",
+    pros:["Минимальные вложения на старте по сравнению с классическим e-commerce","Можно быстро тестировать десятки товарных ниш","Полностью удалённая и масштабируемая модель"],
+    cons:["Высокая конкуренция и растущая стоимость рекламы","Нет контроля над качеством товара и сроками доставки","Много ниш уже перенасыщены — нужен постоянный поиск нового"],
+    tools:["Shopify","AliExpress / CJ Dropshipping","Meta Ads Manager","TikTok Ads","Google Sheets"],
+    skills:["Поиск прибыльных товарных ниш","Настройка интернет-магазина","Таргетированная реклама","Юнит-экономика и расчёт маржи"],
+    specialties:["Owner дропшиппинг-магазина","E-commerce Marketer","Product Researcher","Paid Ads Specialist"],
+    why:["предпринимательские способности","отношение к риску","желание строить собственный бизнес","интерес к финансам"],
+    firstIncome:"Первая прибыль — первая партия успешных продаж тестового товара, обычно в первые 2-4 недели после запуска рекламы."},
+  ecommerce:{name:"E-commerce",group:"business",emoji:"🛒",
+    desc:"Ты строишь собственный интернет-магазин с брендом, складом и постоянными клиентами — на более долгосрочную перспективу, чем дропшиппинг.",
+    pros:["Собственный бренд и контроль над качеством и клиентским опытом","Возможность строить долгосрочный актив с реальной стоимостью","Множество каналов роста: маркетплейсы, свой сайт, соцсети"],
+    cons:["Выше стартовые вложения (закупка, склад, упаковка)","Операционная сложность: логистика, возвраты, склад","Дольше выходишь на первую стабильную прибыль"],
+    tools:["Shopify / Tilda","Wildberries / Ozon Seller","Meta Ads Manager","Google Analytics","1С / МойСклад"],
+    skills:["Управление ассортиментом и закупками","Работа с маркетплейсами","Юнит-экономика и ценообразование","Клиентский сервис"],
+    specialties:["Owner интернет-магазина","E-commerce Manager","Marketplace Manager","Категорийный менеджер"],
+    why:["предпринимательские способности","желание строить собственный бизнес","внимание к деталям","интерес к финансам"],
+    firstIncome:"Первая прибыль — первые продажи через маркетплейс (Wildberries/Ozon) на минимальной тестовой партии товара."},
+  digitalproducts:{name:"Продажа цифровых продуктов",group:"business",emoji:"💾",
+    desc:"Ты создаёшь и продаёшь курсы, шаблоны, гайды или подписки — цифровой товар, который можно продать неограниченное число раз.",
+    pros:["Себестоимость повторной продажи практически нулевая","Продукт можно создать, опираясь на собственную экспертизу","Отличная модель для построения пассивного дохода со временем"],
+    cons:["Нужна аудитория или трафик, чтобы продукт начал продаваться","Высокая конкуренция инфопродуктов на популярные темы","Создание качественного продукта требует значительного времени"],
+    tools:["Gumroad / Boosty","Notion","Canva","Telegram","Getcourse"],
+    skills:["Упаковка экспертизы в продукт","Продающие тексты и лендинги","Работа с аудиторией и запуском","Базовая аналитика продаж"],
+    specialties:["Создатель инфопродуктов","Course Creator","Digital Product Founder","Онлайн-эксперт"],
+    why:["желание создавать продукты","предпринимательские способности","желание обучать других","желание строить собственный бизнес"],
+    firstIncome:"Первая прибыль — продажа первого минимального цифрового продукта (шаблон, мини-гайд) своей начальной аудитории."},
+  nocode:{name:"No-Code стартапы",group:"business",emoji:"🧱",
+    desc:"Ты создаёшь и запускаешь цифровые продукты без написания кода — используя конструкторы, автоматизации и готовые блоки.",
+    pros:["Можно запустить рабочий продукт за дни, а не месяцы","Не требует найма разработчиков на старте","Позволяет быстро проверять бизнес-гипотезы"],
+    cons:["No-code платформы имеют технические ограничения масштабирования","Зависимость от стороннего сервиса и его политики цен","На серьёзном масштабе часто всё равно нужен код"],
+    tools:["Bubble","Webflow","Airtable","Make / Zapier","Softr"],
+    skills:["Проектирование логики без кода","Быстрое прототипирование продукта","Автоматизация процессов","Тестирование бизнес-гипотез"],
+    specialties:["No-code Founder","No-code разработчик","Indie Product Builder","Automation Consultant"],
+    why:["желание создавать продукты","предпринимательские способности","желание автоматизировать процессы","отношение к риску"],
+    firstIncome:"Первая прибыль — платящие первые пользователи собранного no-code MVP или платный заказ на сборку чужого продукта."},
+  saas:{name:"SaaS-стартапы",group:"business",emoji:"🚀",
+    desc:"Ты создаёшь и развиваешь подписочный software-продукт — от идеи и MVP до первых платящих клиентов и роста метрик.",
+    pros:["Модель с предсказуемым повторяющимся доходом (MRR)","Продукт можно строить и масштабировать удалённо из любой точки","Высокий потолок роста при правильном product-market fit"],
+    cons:["Долгий путь до первого стабильного дохода","Высокая конкуренция и риск, что идея не найдёт рынок","Требует одновременно продуктовых, технических и продажных навыков"],
+    tools:["Claude Code / Cursor","Stripe","Notion","Mixpanel","Vercel"],
+    skills:["Product-market fit исследования","Быстрое прототипирование (в т.ч. с AI)","Продажи и работа с первыми клиентами","Продуктовая аналитика"],
+    specialties:["SaaS Founder","Indie Hacker","Product Lead","Technical Founder"],
+    why:["желание создавать продукты","предпринимательские способности","отношение к риску","желание строить собственный бизнес"],
+    firstIncome:"Первая прибыль — первая платная подписка от реального клиента на MVP продукта."},
+  productmanagement:{name:"Product Management",group:"business",emoji:"🧭",
+    desc:"Ты определяешь, что и зачем строит команда — приоритизируешь задачи, работаешь с данными и стыкуешь дизайн, разработку и бизнес.",
+    pros:["Одна из самых влиятельных ролей в digital-компании","Высокая оплата на уровне middle/senior позиций","Развивает системное мышление на стыке всех дисциплин"],
+    cons:["Сложно попасть на первую позицию без опыта в смежной роли","Ответственность за результат, который зависит от многих людей","Постоянные компромиссы между бизнесом, дизайном и разработкой"],
+    tools:["Jira / Linear","Notion","Amplitude","Figma","Miro"],
+    skills:["Приоритизация и roadmap","Работа с метриками продукта","Постановка задач команде","Коммуникация со стейкхолдерами"],
+    specialties:["Product Manager","Associate PM","Growth PM","Technical PM"],
+    why:["аналитическое мышление","лидерство","коммуникация","желание создавать продукты"],
+    firstIncome:"Первый шаг к доходу — переход в PM из смежной роли (аналитик/дизайнер/разработчик) внутри своей же компании или junior PM-позиция в стартапе."},
+  finance:{name:"Финансы",group:"finance",emoji:"💰",
+    desc:"Ты работаешь с цифрами, бюджетами и расчётами — помогаешь принимать взвешенные финансовые решения бизнесу или частным лицам.",
+    pros:["Стабильно востребованная профессия в любой экономике","Понятный карьерный путь с ростом дохода по опыту","Развивает навык, полезный и в личных финансах"],
+    cons:["Много рутинной, кропотливой работы с документами","Высокая ответственность за точность расчётов","Вход на серьёзные позиции требует профильного образования/сертификации"],
+    tools:["Excel / Google Sheets","1С","Power BI","Bloomberg Terminal (для рынков)","QuickBooks"],
+    skills:["Финансовое моделирование","Бюджетирование","Финансовая отчётность","Анализ инвестиционных решений"],
+    specialties:["Финансовый аналитик","Бухгалтер","Финансовый консультант","FP&A специалист"],
+    why:["любишь работать с цифрами","ценишь стабильность","внимателен к деталям","мыслишь просчитанным риском"],
+    firstIncome:"Первый доход — ведение финансового учёта для небольшого бизнеса на аутсорсе или junior-позиция финансового аналитика."},
+  investing:{name:"Инвестирование",group:"finance",emoji:"📈",
+    desc:"Ты изучаешь рынки и строишь инвестиционный портфель — от акций и облигаций до альтернативных активов, ориентируясь на долгосрочный рост капитала.",
+    pros:["Навык, который работает на тебя всю жизнь, а не только на работе","Доступ к информации и инструментам сегодня как никогда открыт","Может стать источником пассивного дохода со временем"],
+    cons:["Реальный риск потери капитала при ошибках","Требует эмоциональной устойчивости к волатильности рынков","Быстрого результата почти никогда не бывает"],
+    tools:["TradingView","Тинькофф Инвестиции / брокерские приложения","Excel","Bloomberg / Yahoo Finance","ГодовыеОтчёты компаний"],
+    skills:["Фундаментальный анализ компаний","Управление риском и диверсификация","Чтение финансовой отчётности","Долгосрочное планирование портфеля"],
+    specialties:["Частный инвестор","Investment Analyst","Портфельный управляющий (в перспективе)","Финансовый блогер"],
+    why:["интерес к финансам","отношение к риску","аналитическое мышление","желание обучаться всю жизнь"],
+    firstIncome:"Первая \"прибыль\" — не столько доход, сколько результат первого дисциплинированного инвестиционного цикла — важно сначала научиться не терять на ошибках."},
+  trading:{name:"Трейдинг",group:"finance",emoji:"📉",
+    desc:"Ты зарабатываешь на краткосрочных колебаниях цен активов — акций, валют или криптовалют — используя анализ графиков и торговые стратегии.",
+    pros:["Полная свобода графика и локации работы","Прямая связь между навыком и потенциальным доходом","Захватывающий интеллектуальный вызов для любителей аналитики"],
+    cons:["Большинство начинающих трейдеров теряют деньги на старте","Высокий эмоциональный и финансовый риск","Требует железной дисциплины и риск-менеджмента"],
+    tools:["TradingView","MetaTrader","Биржевые терминалы (Binance, Bybit)","Excel (журнал сделок)","Экономический календарь"],
+    skills:["Технический анализ","Риск-менеджмент","Ведение торгового журнала","Управление эмоциями при торговле"],
+    specialties:["Трейдер","Day Trader","Портфельный трейдер","Аналитик рынков"],
+    why:["отношение к риску","аналитическое мышление","способность долго концентрироваться","желание работать самостоятельно"],
+    firstIncome:"Первая цель — не прибыль, а торговля без потерь на демо-счёте минимум 2-3 месяца, прежде чем переходить на реальные небольшие суммы."},
+  arbitrage:{name:"Арбитраж криптовалют",group:"finance",emoji:"🔁",
+    desc:"Ты зарабатываешь на разнице цен одного и того же актива на разных биржах или площадках — покупая дешевле и продавая дороже.",
+    pros:["Потенциально более предсказуемая стратегия, чем спекулятивная торговля","Не требует предсказывать направление рынка","Можно частично автоматизировать процесс"],
+    cons:["Маржа по многим схемам арбитража сокращается год от года","Требует стартового капитала и учёта комиссий/налогов","Риски площадок (мошенничество, блокировки, задержки вывода)"],
+    tools:["CoinMarketCap / CoinGecko","Несколько бирж (Binance, Bybit, OKX)","Excel-калькулятор комиссий","Bots (по желанию)","Телеграм-каналы по арбитражу"],
+    skills:["Расчёт маржи с учётом комиссий","Управление рисками площадок","Быстрое принятие решений","Учёт налогов на прибыль"],
+    specialties:["Крипто-арбитражник","Trading Operations","Крипто-аналитик","Liquidity Trader"],
+    why:["отношение к риску","аналитическое мышление","интерес к финансам","интерес к новым технологиям"],
+    firstIncome:"Первая прибыль — первая успешная арбитражная сделка на минимальную тестовую сумму, важно сначала протестировать схему на малых деньгах."},
+  crypto:{name:"Криптовалюты",group:"web3",emoji:"🪙",
+    desc:"Ты разбираешься в криптовалютных активах, проектах и рынках — от анализа токеномики до формирования собственного портфеля.",
+    pros:["Один из самых динамичных и быстрорастущих рынков в мире","Открытая информация и низкий барьер входа для изучения","Множество способов участия: от инвестиций до работы в проектах"],
+    cons:["Крайне высокая волатильность и риск потери капитала","Много скама и непрозрачных проектов — легко ошибиться","Регуляторная неопределённость в разных странах"],
+    tools:["CoinMarketCap","DeFiLlama","TradingView","MetaMask","Крипто-Twitter/X"],
+    skills:["Анализ токеномики проектов","Оценка рисков крипто-активов","Работа с кошельками и биржами","Чтение ончейн-данных"],
+    specialties:["Крипто-аналитик","Крипто-инвестор","Community Lead проекта","Crypto Researcher"],
+    why:["интерес к финансам","отношение к риску","интерес к новым технологиям","склонность к исследованиям"],
+    firstIncome:"Первый заработок — небольшой доход от участия в аирдропах и тестнетах проектов, требующий времени, но минимальных вложений."},
+  defi:{name:"DeFi",group:"web3",emoji:"🏦",
+    desc:"Ты работаешь с децентрализованными финансовыми протоколами — от предоставления ликвидности до анализа доходных стратегий (yield farming).",
+    pros:["Доступ к финансовым инструментам без посредников и банков","Потенциально высокая доходность у ранних протоколов","Быстрорастущая и технологически интересная область"],
+    cons:["Риски смарт-контрактов и хакерских атак на протоколы","Требует глубокого понимания механики, иначе легко потерять деньги","Сложная и постоянно меняющаяся терминология"],
+    tools:["MetaMask","DeFiLlama","Uniswap / Aave","Etherscan","Dune Analytics"],
+    skills:["Оценка рисков протоколов","Работа с ликвидностью и стейкингом","Чтение смарт-контрактов на базовом уровне","Управление крипто-кошельками"],
+    specialties:["DeFi Analyst","Yield Farmer","DeFi Strategist","Protocol Researcher"],
+    why:["интерес к новым технологиям","отношение к риску","аналитическое мышление","склонность к исследованиям"],
+    firstIncome:"Первый заработок — доход от консервативной стратегии стейкинга/предоставления ликвидности на небольшую тестовую сумму."},
+  web3gen:{name:"Web3-специалист",group:"web3",emoji:"⛓️",
+    desc:"Ты работаешь на стыке технологий и сообществ децентрализованного интернета — от продуктов до комьюнити-менеджмента крипто-проектов.",
+    pros:["Один из самых высокооплачиваемых сегментов на стыке IT и финансов","Международный рынок труда, много удалённых позиций","Возможность быть частью новых технологий на раннем этапе"],
+    cons:["Высокая волатильность рынка и найма (циклы hype/спад)","Область требует постоянного самообучения — стандарты быстро меняются","Много проектов закрываются, не оправдав ожиданий"],
+    tools:["MetaMask","Discord","Etherscan","Notion","Twitter/X"],
+    skills:["Понимание блокчейн-технологий","Комьюнити-менеджмент Web3-проекта","Основы токеномики","Работа с DAO-инструментами"],
+    specialties:["Web3 Community Manager","Web3 Product Manager","Ecosystem Lead","Web3 Growth"],
+    why:["интерес к новым технологиям","желание строить сообщество","отношение к риску","склонность к исследованиям"],
+    firstIncome:"Первый доход — part-time роль комьюнити-менеджера в раннем крипто-проекте, часто оплачивается токенами и/или стейблкоинами."},
+  blockchain:{name:"Blockchain-разработка",group:"web3",emoji:"🔗",
+    desc:"Ты пишешь код для блокчейн-протоколов и децентрализованных приложений — от узлов сети до серверной части dApp.",
+    pros:["Один из самых высокооплачиваемых стеков в разработке","Международный рынок с высоким спросом на инженеров","Работа на переднем крае технологий распределённых систем"],
+    cons:["Высокий порог входа — нужна серьёзная база в разработке","Ошибки в коде могут стоить пользователям реальных денег","Постоянно меняющиеся стандарты и протоколы"],
+    tools:["Solidity","Hardhat / Foundry","Ethers.js","Rust (для некоторых сетей)","Git"],
+    skills:["Разработка на Solidity","Основы криптографии","Работа с блокчейн-нодами","Тестирование смарт-контрактов"],
+    specialties:["Blockchain Developer","Smart Contract Engineer","Protocol Engineer","dApp Developer"],
+    why:["интересны технологии","аналитическое мышление","силён в логике и алгоритмах","интерес к новым технологиям"],
+    firstIncome:"Первый доход — небольшой bug bounty на аудите смарт-контракта или первый junior-контракт в Web3-стартапе."},
+  smartcontracts:{name:"Смарт-контракты",group:"web3",emoji:"📜",
+    desc:"Ты пишешь и аудируешь смарт-контракты — самоисполняющийся код, который управляет активами и логикой на блокчейне.",
+    pros:["Крайне высокий чек за экспертизу, особенно в аудите","Компактная и интересная инженерная область","Прямое влияние на безопасность реальных денег пользователей"],
+    cons:["Одна ошибка может стоить проекту миллионов — колоссальная ответственность","Требует глубокого понимания и разработки, и безопасности","Долгий путь до уровня, на котором тебе доверят реальный аудит"],
+    tools:["Solidity","Foundry","Slither (анализ безопасности)","Remix IDE","OpenZeppelin"],
+    skills:["Разработка контрактов на Solidity","Поиск уязвимостей в контрактах","Газовая оптимизация","Тестирование edge-кейсов"],
+    specialties:["Smart Contract Developer","Smart Contract Auditor","Security Researcher Web3","Protocol Engineer"],
+    why:["внимание к деталям","аналитическое мышление","интересны технологии","способность долго концентрироваться"],
+    firstIncome:"Первый доход — bug bounty за найденную уязвимость в контракте (площадки вроде Code4rena) — может составить от десятков тысяч рублей."},
+  depin:{name:"DePIN",group:"web3",emoji:"📡",
+    desc:"Ты работаешь с децентрализованными физическими инфраструктурными сетями — проектами, где реальное оборудование (сети, хранилища, датчики) координируется через блокчейн.",
+    pros:["Одна из самых новых и малоконкурентных ниш в Web3","Стык физического мира и криптоэкономики — уникальный опыт","Растущий интерес крупных фондов к сектору"],
+    cons:["Ниша ещё очень молодая — мало устоявшихся практик и вакансий","Требует понимания и железа/сетей, и токеномики одновременно","Многие проекты — ранние и рискованные"],
+    tools:["Grafana (мониторинг узлов)","MetaMask","DePIN-дашборды проектов","Discord","Notion"],
+    skills:["Базовое понимание сетевой инфраструктуры","Токеномика DePIN-проектов","Настройка и обслуживание узлов","Анализ юнит-экономики железа"],
+    specialties:["DePIN Node Operator","DePIN Analyst","Infrastructure Community Lead","Ecosystem Researcher"],
+    why:["интерес к новым технологиям","склонность к исследованиям","отношение к риску","интерес к финансам"],
+    firstIncome:"Первый доход — вознаграждение токенами за запуск и поддержание собственного узла в одной из DePIN-сетей."},
+  dao:{name:"DAO",group:"web3",emoji:"🗳️",
+    desc:"Ты участвуешь в управлении децентрализованными организациями — от голосования по предложениям до координации рабочих групп внутри DAO.",
+    pros:["Возможность влиять на реальные проекты без формальной иерархии","Полностью удалённая и гибкая форма участия","Хороший вход в Web3-индустрию через реальный вклад, а не резюме"],
+    cons:["Доход часто нестабилен и завязан на токен проекта","Управленческие процессы DAO часто медленные и хаотичные","Нужно самому проявлять инициативу — никто не поставит задачу"],
+    tools:["Snapshot","Discord","Notion","Discourse (форумы DAO)","MetaMask"],
+    skills:["Оценка governance-предложений","Координация рабочих групп","Письменная коммуникация в сообществе","Понимание токен-экономики DAO"],
+    specialties:["DAO Contributor","Governance Lead","Community Coordinator","DAO Operations"],
+    why:["желание строить сообщество","желание работать самостоятельно","коммуникация","интерес к новым технологиям"],
+    firstIncome:"Первый доход — оплата за выполненный bounty-таск от DAO (написание документа, координация ивента) в токенах или стейблкоинах."},
+  tokenization:{name:"Токенизация",group:"web3",emoji:"🎟️",
+    desc:"Ты работаешь над превращением реальных активов (недвижимость, искусство, бизнес-доли) в цифровые токены на блокчейне.",
+    pros:["Растущий тренд с интересом со стороны традиционных финансов","Работа на стыке классических финансов и новых технологий","Потенциально огромный рынок в перспективе нескольких лет"],
+    cons:["Регуляторная неопределённость в большинстве стран","Ниша всё ещё формируется — мало готовых кейсов и вакансий","Требует понимания и юридической, и технической стороны"],
+    tools:["Ethereum / другие сети","MetaMask","Юридические фреймворки токенизации","Notion","Etherscan"],
+    skills:["Основы структурирования токенизированных активов","Понимание регуляторики","Базовый Web3-стек","Работа с инвесторами"],
+    specialties:["Tokenization Analyst","Web3 Product Manager","RWA Researcher","Blockchain Business Analyst"],
+    why:["интерес к финансам","интерес к новым технологиям","склонность к исследованиям","предпринимательские способности"],
+    firstIncome:"Первый доход — участие в консалтинговом проекте по токенизации реального актива на стороне подрядчика."},
+  sales:{name:"Продажи",group:"peoplesales",emoji:"🤝",
+    desc:"Ты умеешь находить общий язык с людьми и выстраивать сделки — от холодных продаж до работы с ключевыми клиентами.",
+    pros:["Доход напрямую зависит от твоих усилий и навыка, а не только оклада","Навык, который пригодится в любой сфере жизни и бизнеса","Быстрый вход — нанимают часто без опыта, с обучением на месте"],
+    cons:["Эмоционально тяжело переживать регулярные отказы","Доход может быть нестабильным на комиссионных схемах","Высокие KPI и давление на результат"],
+    tools:["CRM (amoCRM, HubSpot)","LinkedIn Sales Navigator","Zoom","Google Sheets","Email-рассылки"],
+    skills:["Холодные звонки и питчинг","Работа с возражениями","Ведение сделки по воронке","Построение долгосрочных отношений с клиентом"],
+    specialties:["Менеджер по продажам","Account Manager","Business Development Manager","Sales Lead"],
+    why:["легко общаешься с новыми людьми","любишь убеждать","комфортно в переговорах","мотивирует быстрый результат"],
+    firstIncome:"Первый доход — первая закрытая сделка на новой позиции, обычно уже в первый-второй месяц работы за счёт базового оклада + бонус."},
+  hr:{name:"HR",group:"peoplesales",emoji:"👥",
+    desc:"Ты помогаешь находить, растить и поддерживать людей внутри команд и компаний — от найма до развития корпоративной культуры.",
+    pros:["Стабильно востребованная роль в компаниях любого размера","Прямое влияние на качество жизни людей в компании","Разнообразие направлений внутри профессии (найм, обучение, культура)"],
+    cons:["Эмоционально тяжёлая роль — конфликты, увольнения, сложные разговоры","Часто воспринимается как «поддерживающая», а не стратегическая функция","Результат сложно измерить количественно"],
+    tools:["LinkedIn Recruiter","HR-платформы (Хантфлоу, People.ru)","Google Forms","Notion","Zoom"],
+    skills:["Проведение интервью","Оценка кандидатов","HR-аналитика","Построение процессов адаптации"],
+    specialties:["HR-менеджер","Рекрутер","T&D-специалист","People Partner"],
+    why:["любишь помогать людям","умеешь объяснять и обучать","берёшь ответственность за команду","внимателен к людям"],
+    firstIncome:"Первый доход — junior-позиция рекрутера или HR-ассистента, куда часто берут без опыта при наличии хороших коммуникативных навыков."},
+  personalbrand:{name:"Создание персонального бренда",group:"solo",emoji:"⭐",
+    desc:"Ты выстраиваешь узнаваемое имя эксперта в своей области — через контент, публичные выступления и последовательную коммуникацию своих идей.",
+    pros:["Личный бренд открывает доступ к клиентам, работе и партнёрствам без холодных продаж","Актив, который растёт вместе с тобой и не привязан к одному работодателю","Совместим с любой основной профессией как усилитель"],
+    cons:["Результат приходит небыстро — требует месяцев регулярной публичности","Уязвимость к публичной критике и сравнению с другими","Сложно измерить прогресс в моменте — нужна вера в долгую игру"],
+    tools:["LinkedIn / Telegram","Canva","Notion (контент-план)","CapCut","Аналитика соцсетей"],
+    skills:["Формулирование своей экспертной позиции","Регулярное создание контента","Публичные выступления","Работа с личной репутацией"],
+    specialties:["Персональный бренд-эксперт","Спикер","Автор блога/канала","Инфлюенсер в нише"],
+    why:["любовь к публичности","желание работать самостоятельно","желание обучаться всю жизнь","предпринимательские способности"],
+    firstIncome:"Первый доход — платная консультация или выступление после того, как вокруг тебя сформировалась первая узнающая тебя аудитория."},
+  community:{name:"Создание онлайн-сообществ",group:"solo",emoji:"🌐",
+    desc:"Ты собираешь и развиваешь сообщество людей вокруг общей темы или интереса — от модерации до построения устойчивой культуры участия.",
+    pros:["Сообщества — один из самых устойчивых способов удержания аудитории","Растущий спрос со стороны брендов на построение комьюнити","Развивает уникальное сочетание soft skills и продуктового мышления"],
+    cons:["Рост живого активного сообщества требует много времени и энергии","Модерация конфликтов внутри сообщества — эмоционально затратна","Монетизация сообщества не всегда очевидна на старте"],
+    tools:["Discord","Telegram","Circle.so","Notion","Zoom"],
+    skills:["Модерация и построение культуры сообщества","Организация мероприятий и активностей","Работа с вовлечённостью участников","Базовая монетизация сообщества"],
+    specialties:["Community Manager","Community Builder","Head of Community","Event & Engagement Lead"],
+    why:["желание строить сообщество","коммуникация","лидерство","желание работать самостоятельно"],
+    firstIncome:"Первый доход — оплачиваемая роль community-менеджера у бренда/проекта или платное членство в собственном сообществе."},
+  solopreneur:{name:"Solopreneur",group:"solo",emoji:"🧑‍💻",
+    desc:"Ты строишь бизнес в одиночку, используя AI-инструменты как команду — от продукта и маркетинга до продаж и поддержки клиентов.",
+    pros:["Полный контроль над бизнесом без необходимости управлять командой","AI-инструменты сегодня закрывают многие роли, которые раньше требовали найма","Максимальная гибкость графика и приоритетов"],
+    cons:["Вся ответственность и весь объём работы — на одном человеке","Риск выгорания без команды, которая разделит нагрузку","Ограниченный потолок масштабирования без делегирования"],
+    tools:["Claude Code","Stripe","Notion","AI-ассистенты (Claude, ChatGPT)","No-code инструменты"],
+    skills:["Продуктовое мышление в одиночку","Базовые навыки маркетинга и продаж","Управление собственным временем","Работа с AI как «виртуальной командой»"],
+    specialties:["Solo Founder","Independent Creator","One-person Business Owner","Micro-SaaS Founder"],
+    why:["желание работать самостоятельно","предпринимательские способности","желание строить собственный бизнес","желание автоматизировать процессы"],
+    firstIncome:"Первый доход — первая продажа собственного микро-продукта или услуги без привлечения команды."},
+  indiehacker:{name:"Indie Hacker",group:"solo",emoji:"🔨",
+    desc:"Ты создаёшь и запускаешь небольшие цифровые продукты и микро-стартапы самостоятельно, часто публично документируя процесс их роста.",
+    pros:["Быстрые циклы запуска — от идеи до продукта за недели","Открытая культура комьюнити indie-разработчиков, которая помогает учиться","Можно параллельно тестировать несколько идей, пока не выстрелит одна"],
+    cons:["Большинство запущенных проектов не находят своих пользователей","Нужно быть одновременно и разработчиком, и маркетологом, и продажником","Доход крайне непредсказуем, особенно первый год"],
+    tools:["Claude Code / Cursor","Vercel / Railway","Stripe","Twitter/X (build in public)","Product Hunt"],
+    skills:["Быстрое прототипирование продукта","Build in public — ведение публичного дневника разработки","Базовый маркетинг запуска","Работа с первыми пользователями"],
+    specialties:["Indie Hacker","Micro-SaaS Founder","Bootstrap Founder","Solo Product Builder"],
+    why:["желание создавать продукты","отношение к риску","желание работать самостоятельно","желание автоматизировать процессы"],
+    firstIncome:"Первый доход — первые платящие пользователи одного из запущенных микро-продуктов, часто после нескольких неудачных попыток."},
+};
+
+const QUESTIONS = [
+ // --- Общее: базовые склонности ---
+ {t:"В свободное время тебе интереснее всего…", o:[
+   {t:"разбираться, как устроены программы и приложения", s:{fe:2,be:2,fullstack:2,vibecoding:1}},
+   {t:"рисовать и создавать визуальные вещи", s:{uxui:2,graphic:2,design3d:1}},
+   {t:"общаться с людьми и обсуждать идеи", s:{mkt:1,sales:2,hr:1,community:1}},
+   {t:"писать тексты или снимать видео", s:{content:2,youtube:2,videoedit:1}}]},
+ {t:"Когда решаешь сложную задачу, ты…", o:[
+   {t:"ищешь логичный пошаговый алгоритм", s:{be:2,datasci:2,finance:1}},
+   {t:"ищешь нестандартное творческое решение", s:{uxui:2,branding:2,aidesign:1}},
+   {t:"думаешь, как это донести до людей", s:{mkt:2,sales:2,personalbrand:1}},
+   {t:"считаешь цифры и выгоду", s:{finance:2,investing:1,ecommerce:1}}]},
+ {t:"Тебя чаще всего описывают как…", o:[
+   {t:"технаря, который любит разбираться в деталях", s:{fe:1,be:2,cyber:2}},
+   {t:"творческую личность", s:{graphic:2,motion:1,branding:1}},
+   {t:"душу компании и лидера", s:{sales:1,hr:1,community:2}},
+   {t:"человека, который умеет убеждать", s:{content:1,mkt:2,personalbrand:1}}]},
+ {t:"Тебе комфортнее работать…", o:[
+   {t:"в тишине и сосредоточенно, в одиночку", s:{be:2,datasci:2,smartcontracts:1}},
+   {t:"в динамике, с частыми изменениями", s:{mkt:2,sales:1,trading:1}},
+   {t:"в команде, обсуждая идеи", s:{hr:1,productmanagement:2,community:1}},
+   {t:"по вдохновению, в своём ритме", s:{graphic:2,youtube:1,indiehacker:1}}]},
+ {t:"Что мотивирует тебя больше всего?", o:[
+   {t:"решать сложные технические задачи", s:{be:2,ml:2,cyber:1}},
+   {t:"создавать что-то красивое", s:{uxui:2,graphic:2,aidesign:1}},
+   {t:"зарабатывать и строить своё дело", s:{solopreneur:2,ecommerce:2,indiehacker:1}},
+   {t:"помогать и обучать людей", s:{hr:2,aiconsulting:1,content:1}}]},
+
+ // --- Риск, финансы, деньги ---
+ {t:"Как ты относишься к деньгам?", o:[
+   {t:"главное — стабильный доход", s:{finance:2,hr:1,be:1}},
+   {t:"готов рисковать ради большего дохода", s:{trading:2,dropship:2,arbitrage:1}},
+   {t:"деньги не главное, важнее интерес", s:{design3d:1,datasci:1,podcasts:1}},
+   {t:"хочу зарабатывать через творчество", s:{graphic:2,aivideo:1,motion:1}}]},
+ {t:"Как ты относишься к волатильности и непредсказуемым рынкам?", o:[
+   {t:"это увлекательно, люблю такие вызовы", s:{trading:2,crypto:2,defi:1}},
+   {t:"интересно наблюдать, но участвовать страшно", s:{investing:1,finance:1}},
+   {t:"предпочитаю предсказуемость", s:{be:1,hr:1,productmanagement:1}},
+   {t:"нормально, если есть чёткая стратегия", s:{arbitrage:2,tokenization:1,web3gen:1}}]},
+ {t:"Насколько тебе интересны финансы и инвестиции?", o:[
+   {t:"очень — слежу за рынками и новостями", s:{investing:2,trading:1,finance:1}},
+   {t:"интересна крипто-тема больше, чем классика", s:{crypto:2,defi:1,web3gen:1}},
+   {t:"не особо, я больше про людей", s:{hr:2,sales:1}},
+   {t:"не особо, я больше про творчество", s:{graphic:1,motion:1,aimusic:1}}]},
+ {t:"Представь: у тебя есть 3 месяца и немного денег на старт. Что ты сделаешь?", o:[
+   {t:"запущу небольшой интернет-магазин или тестовую нишу", s:{dropship:2,ecommerce:2}},
+   {t:"соберу MVP цифрового продукта с помощью AI", s:{vibecoding:2,saas:1,indiehacker:1}},
+   {t:"вложу в обучение и в первую очередь прокачаю навык", s:{uxui:1,datasci:1,content:1}},
+   {t:"положу в консервативные активы и буду наблюдать", s:{investing:2,finance:1}}]},
+
+ // --- AI и технологии ---
+ {t:"Насколько тебе интересен искусственный интеллект?", o:[
+   {t:"очень — использую нейросети каждый день", s:{vibecoding:2,aiagentsdev:2,promptengineering:1}},
+   {t:"интересен как инструмент для творчества", s:{aidesign:2,aivideo:1,aimusic:1}},
+   {t:"интересен с точки зрения бизнеса и автоматизации", s:{aiautomation:2,aiagency:1,aiconsulting:1}},
+   {t:"не особо, предпочитаю классические подходы", s:{finance:1,hr:1,branding:1}}]},
+ {t:"Как ты используешь AI-инструменты в своих задачах?", o:[
+   {t:"пишу через них код и собираю прототипы", s:{vibecoding:2,fullstack:1,saas:1}},
+   {t:"генерирую изображения, видео или музыку", s:{aidesign:2,aivideo:1,aimusic:1}},
+   {t:"настраиваю автоматизации для рутинных процессов", s:{aiautomation:2,nocode:1}},
+   {t:"почти не использую, работаю по старинке", s:{finance:1,cyber:1}}]},
+ {t:"Хочешь ли ты, чтобы AI выполнял часть твоей работы за тебя?", o:[
+   {t:"да, хочу построить процесс, где AI — часть команды", s:{aiagentsdev:2,solopreneur:1,aiautomation:1}},
+   {t:"да, но только рутину — творчество оставлю себе", s:{aidesign:1,content:1,graphic:1}},
+   {t:"хочу сам разбираться, как это работает изнутри", s:{ml:2,datasci:1,blockchain:1}},
+   {t:"не особо доверяю AI в критичных задачах", s:{cyber:2,finance:1}}]},
+ {t:"Насколько тебе интересны новые технологии в целом?", o:[
+   {t:"очень, слежу за IT-новинками", s:{fe:1,be:1,ml:2}},
+   {t:"интересны технологии блокчейна и Web3", s:{blockchain:2,web3gen:1,dao:1}},
+   {t:"интересно, но не глубоко", s:{uxui:1,mkt:1}},
+   {t:"интересны с точки зрения бизнеса", s:{saas:1,aiagency:1,productmanagement:1}}]},
+ {t:"Тебе нравится разбираться, как устроены системы «изнутри», чтобы найти в них слабое место?", o:[
+   {t:"да, обожаю искать уязвимости и ошибки", s:{cyber:2,smartcontracts:1}},
+   {t:"нравится анализировать данные на предмет закономерностей", s:{datasci:2,ml:1}},
+   {t:"нравится находить слабые места в бизнес-процессах", s:{aiautomation:2,productmanagement:1}},
+   {t:"не особо, я больше про создание нового", s:{uxui:1,graphic:1}}]},
+
+ // --- Разработка / geekdev дифференциация ---
+ {t:"Что тебе интереснее в разработке?", o:[
+   {t:"то, что видит и с чем взаимодействует пользователь", s:{fe:2,mobile:1}},
+   {t:"то, что происходит «под капотом» — логика и данные", s:{be:2,datasci:1}},
+   {t:"собрать продукт целиком от и до", s:{fullstack:2,saas:1}},
+   {t:"собрать рабочий прототип максимально быстро с помощью AI", s:{vibecoding:2,indiehacker:1}}]},
+ {t:"Если бы тебе предложили сделать игру, что бы тебя увлекло больше всего?", o:[
+   {t:"придумывать механики и уровни", s:{gamedev:2}},
+   {t:"рисовать персонажей и окружение", s:{design3d:2,graphic:1}},
+   {t:"писать код физики и логики игры", s:{gamedev:2,fullstack:1}},
+   {t:"это не моё, игры не так увлекают", s:{finance:1,hr:1}}]},
+ {t:"Насколько тебе важно разбираться в математике и статистике?", o:[
+   {t:"очень — люблю точные вычисления", s:{datasci:2,ml:2,trading:1}},
+   {t:"важно, но применительно к деньгам", s:{finance:2,investing:1}},
+   {t:"не критично, мне важнее интуиция", s:{uxui:1,content:1}},
+   {t:"скорее важна логика, чем формулы", s:{be:1,smartcontracts:1}}]},
+ {t:"Ты готов(а) месяцами разбираться в одной сложной технической теме, не видя быстрого результата?", o:[
+   {t:"да, это меня драйвит", s:{ml:2,smartcontracts:2,cyber:1}},
+   {t:"готов, если вижу понятную цель на горизонте", s:{be:1,blockchain:1}},
+   {t:"предпочитаю быстрые понятные результаты", s:{fe:1,vibecoding:1,videoedit:1}},
+   {t:"нет, мне важно разнообразие задач каждый день", s:{sales:1,mkt:1}}]},
+ {t:"Как ты относишься к автоматизации рутины?", o:[
+   {t:"обожаю — постоянно ищу, что можно автоматизировать", s:{aiautomation:2,nocode:2}},
+   {t:"настраиваю автоматизации только когда сильно достало", s:{fullstack:1,be:1}},
+   {t:"мне важнее, чтобы автоматизация помогала бизнесу зарабатывать", s:{aiagency:2,productmanagement:1}},
+   {t:"предпочитаю делать всё вручную и контролировать процесс", s:{branding:1,hr:1}}]},
+
+ // --- Дизайн / креатив дифференциация ---
+ {t:"Что тебе ближе в дизайне?", o:[
+   {t:"продумывать удобство и логику интерфейса", s:{uxui:2,productdesign:1}},
+   {t:"создавать целостный образ и стиль бренда", s:{branding:2,graphic:1}},
+   {t:"оживлять статичные вещи движением", s:{motion:2}},
+   {t:"создавать объёмные объекты и сцены", s:{design3d:2}}]},
+ {t:"Обращаешь внимание на визуальную эстетику вокруг?", o:[
+   {t:"постоянно, для меня это важно", s:{graphic:2,branding:1}},
+   {t:"да, особенно в интерфейсах приложений", s:{uxui:2,productdesign:1}},
+   {t:"иногда замечаю", s:{videoedit:1,mkt:1}},
+   {t:"не особо", s:{be:1,finance:1}}]},
+ {t:"Насколько для тебя важно продуктовое мышление — понимание, зачем нужна каждая деталь?", o:[
+   {t:"очень — люблю думать о метриках и целях фичи", s:{productdesign:2,productmanagement:2}},
+   {t:"важно, но больше с точки зрения эстетики", s:{uxui:1,branding:1}},
+   {t:"не особо, мне важнее креативный результат", s:{graphic:1,motion:1}},
+   {t:"важно, но с точки зрения бизнеса, а не дизайна", s:{saas:1,ecommerce:1}}]},
+ {t:"Что тебе интереснее делать с музыкой или звуком?", o:[
+   {t:"создавать треки с помощью AI-инструментов", s:{aimusic:2}},
+   {t:"сводить и обрабатывать звук для видео", s:{videoedit:1,podcasts:1}},
+   {t:"мне не близка работа со звуком", s:{fe:1,finance:1}},
+   {t:"хочу использовать звук для атмосферы в анимации", s:{aianimation:2,motion:1}}]},
+
+ // --- Контент/медиа дифференциация ---
+ {t:"Какой формат контента тебе ближе всего?", o:[
+   {t:"длинные видео с глубоким погружением в тему", s:{youtube:2,podcasts:1}},
+   {t:"короткие вертикальные видео на тренды", s:{tiktok:2,reels:1}},
+   {t:"текст — посты, статьи, рассылки", s:{content:2,telegram:1}},
+   {t:"живой прямой эфир без монтажа", s:{twitch:2}}]},
+ {t:"Как ты относишься к тому, чтобы быть лицом своего контента на камере?", o:[
+   {t:"обожаю быть в кадре", s:{youtube:1,tiktok:2,twitch:1}},
+   {t:"проще, если публичный образ создаёт AI, а не я лично", s:{aiinfluencer:2,podcasts:1}},
+   {t:"лучше буду снимать честные обзоры от первого лица для брендов", s:{ugc:2}},
+   {t:"некомфортно быть в кадре, лучше текст или закадровая работа", s:{content:2,telegram:1}}]},
+ {t:"Тебе интереснее снять что-то самому или довести чужой материал до идеала?", o:[
+   {t:"снять и рассказать историю от начала до конца", s:{youtube:2,aivideo:1}},
+   {t:"взять исходники и собрать из них цельную историю монтажом", s:{videoedit:2}},
+   {t:"придумать сценарий и текст, а не снимать самому", s:{content:2,podcasts:1}},
+   {t:"создать видео полностью через нейросеть, без камеры", s:{aivideo:2,aianimation:1}}]},
+ {t:"Что тебе важнее в работе с контентом?", o:[
+   {t:"объяснять сложное простыми словами", s:{content:2,telegram:1}},
+   {t:"развлекать и удерживать внимание", s:{tiktok:2,reels:1}},
+   {t:"строить вокруг себя лояльное сообщество", s:{twitch:1,community:2}},
+   {t:"продавать через честные рекомендации", s:{ugc:2,mkt:1}}]},
+ {t:"Готов(а) ли ты публиковать контент регулярно, даже когда нет вдохновения?", o:[
+   {t:"да, дисциплина важнее вдохновения", s:{youtube:2,telegram:1}},
+   {t:"да, если вижу растущие цифры и обратную связь", s:{tiktok:1,reels:1}},
+   {t:"предпочитаю publish, когда действительно есть что сказать", s:{podcasts:1,personalbrand:1}},
+   {t:"такой режим не для меня", s:{finance:1,hr:1}}]},
+
+ // --- Маркетинг / бизнес дифференциация ---
+ {t:"Тебе интереснее придумать идею продукта или продать уже готовый?", o:[
+   {t:"придумать и создать продукт с нуля", s:{saas:2,digitalproducts:1}},
+   {t:"продать и найти этому продукту покупателей", s:{sales:2,mkt:1}},
+   {t:"выстроить весь бизнес-процесс вокруг продукта", s:{ecommerce:2,dropship:1}},
+   {t:"собрать всё без кода за счёт готовых блоков", s:{nocode:2}}]},
+ {t:"Как ты относишься к продажам и переговорам?", o:[
+   {t:"люблю продавать и убеждать", s:{sales:2,mkt:1}},
+   {t:"нормально, могу, если нужно", s:{hr:1,productmanagement:1}},
+   {t:"не люблю, некомфортно", s:{fe:2,datasci:1}},
+   {t:"люблю продавать через контент, а не напрямую", s:{content:2,ugc:1}}]},
+ {t:"Мечтаешь о своём деле?", o:[
+   {t:"да, обязательно хочу свой бизнес", s:{solopreneur:2,ecommerce:1}},
+   {t:"да, но в одиночку, без команды и найма", s:{indiehacker:2,solopreneur:1}},
+   {t:"нет, хочу быть сильным экспертом в найме", s:{fe:1,uxui:1,finance:1}},
+   {t:"хочу помогать чужим бизнесам как консультант", s:{aiconsulting:2,productmanagement:1}}]},
+ {t:"Что для тебя привлекательнее в бизнесе?", o:[
+   {t:"построить агентство и команду вокруг услуги", s:{aiagency:2}},
+   {t:"продавать своё личное время и экспертизу", s:{aiconsulting:1,personalbrand:1}},
+   {t:"строить продукт с повторяемым доходом", s:{saas:2,digitalproducts:1}},
+   {t:"управлять товарным ассортиментом и продажами", s:{ecommerce:2,dropship:1}}]},
+ {t:"Тебе интересно считать unit-экономику и просчитывать бизнес-модель?", o:[
+   {t:"да, обожаю считать окупаемость и маржу", s:{ecommerce:2,finance:1}},
+   {t:"важно, но не самое интересное в бизнесе", s:{saas:1,productmanagement:1}},
+   {t:"не особо, я больше про продукт и людей", s:{uxui:1,hr:1}},
+   {t:"да, особенно применительно к рекламным кампаниям", s:{mkt:2}}]},
+ // --- Финансы / крипто / web3 дифференциация ---
+ {t:"Как ты относишься к идее зарабатывать на разнице цен между площадками?", o:[
+   {t:"звучит интересно, люблю такие расчётные схемы", s:{arbitrage:2}},
+   {t:"интереснее долгосрочно инвестировать, а не ловить разницу", s:{investing:2}},
+   {t:"интереснее активно торговать на графиках", s:{trading:2}},
+   {t:"не близко, я не про финансовые схемы", s:{hr:1,content:1}}]},
+ {t:"Насколько тебе интересна децентрализация и блокчейн как технология?", o:[
+   {t:"очень — хочу писать код для блокчейна", s:{blockchain:2,smartcontracts:1}},
+   {t:"интересна экономика и управление такими проектами", s:{dao:2,web3gen:1}},
+   {t:"интересна как способ инвестирования", s:{crypto:2,defi:1}},
+   {t:"не особо интересна", s:{hr:1,graphic:1}}]},
+ {t:"Готов(а) ли ты разбираться в новой сложной терминологии ради потенциальной выгоды?", o:[
+   {t:"да, обожаю нырять в новые сложные темы", s:{defi:2,tokenization:1}},
+   {t:"да, если это про реальные технологии, а не хайп", s:{depin:2,blockchain:1}},
+   {t:"в меру, если это не отнимает много времени", s:{crypto:1,investing:1}},
+   {t:"нет, предпочитаю простые понятные схемы", s:{finance:1,fe:1}}]},
+
+ // --- Люди / лидерство / сообщества ---
+ {t:"Тебе нравится руководить и принимать решения за команду?", o:[
+   {t:"да, я прирождённый лидер", s:{productmanagement:2,hr:1,community:1}},
+   {t:"иногда, если это нужно", s:{mkt:1,be:1}},
+   {t:"нет, предпочитаю отвечать за свою часть", s:{fe:2,smartcontracts:1}},
+   {t:"нет, но люблю обучать и растить других", s:{hr:2,aiconsulting:1}}]},
+ {t:"Насколько легко тебе общаться с незнакомыми людьми?", o:[
+   {t:"легко, люблю знакомиться", s:{sales:2,community:1}},
+   {t:"нормально, если есть тема для разговора", s:{hr:2,podcasts:1}},
+   {t:"сложно, предпочитаю письменное общение", s:{fe:1,be:1,content:1}},
+   {t:"легко на публику, но не один на один", s:{twitch:2,youtube:1}}]},
+ {t:"Тебе важно строить вокруг себя сообщество единомышленников?", o:[
+   {t:"да, обожаю объединять людей вокруг идеи", s:{community:2,dao:1}},
+   {t:"важно, но скорее вокруг личного бренда", s:{personalbrand:2}},
+   {t:"не особо, мне важнее индивидуальный результат", s:{smartcontracts:1,trading:1}},
+   {t:"важно, но через полезный продукт, а не общение", s:{saas:1,digitalproducts:1}}]},
+ {t:"Готов(а) ли ты брать ответственность за результат чужой команды?", o:[
+   {t:"да, легко беру ответственность за людей", s:{hr:2,productmanagement:1}},
+   {t:"готов частично, в рамках своей роли", s:{mkt:1,sales:1}},
+   {t:"предпочитаю отвечать только за себя", s:{fe:1,indiehacker:1}},
+   {t:"готов, если это творческий проект", s:{branding:1,motion:1}}]},
+ {t:"Что для тебя приоритетнее — работать самостоятельно или в команде?", o:[
+   {t:"полностью самостоятельно, сам себе начальник", s:{solopreneur:2,indiehacker:1}},
+   {t:"в небольшой гибкой команде", s:{saas:1,aiagency:1}},
+   {t:"в устойчивой команде с чёткими ролями", s:{be:1,hr:1}},
+   {t:"без разницы, главное — интересные задачи", s:{videoedit:1,content:1}}]},
+
+ // --- Обучение / эксперименты / фокус ---
+ {t:"Как тебе проще учиться новому?", o:[
+   {t:"читать документацию и сразу практиковаться", s:{fe:2,be:1,ml:1}},
+   {t:"смотреть примеры и повторять визуально", s:{uxui:1,graphic:2}},
+   {t:"на реальных кейсах и практике с людьми", s:{sales:2,hr:1}},
+   {t:"через тексты и структурированные материалы", s:{content:2,finance:1}}]},
+ {t:"Любишь пробовать новые инструменты и подходы, даже сырые и неидеальные?", o:[
+   {t:"да, обожаю тестировать новое первым", s:{vibecoding:2,aiagentsdev:1}},
+   {t:"да, особенно новые творческие AI-инструменты", s:{aidesign:2,aivideo:1}},
+   {t:"не особо, предпочитаю проверенное", s:{finance:2,hr:1}},
+   {t:"люблю экспериментировать с форматами контента", s:{tiktok:2,reels:1}}]},
+ {t:"Готов(а) ли ты учиться новому всю жизнь, даже когда уже стал(а) экспертом?", o:[
+   {t:"да, это часть кайфа от профессии", s:{ml:2,aiconsulting:1}},
+   {t:"да, особенно если это помогает больше зарабатывать", s:{investing:1,trading:1}},
+   {t:"хотелось бы один раз выучиться и стабильно работать", s:{finance:1,be:1}},
+   {t:"да, но обучение должно быть через практику, не теорию", s:{gamedev:1,mobile:1}}]},
+ {t:"Насколько ты усидчив(а) в задачах, которые требуют часов сфокусированной работы без отвлечений?", o:[
+   {t:"очень — могу часами не отрываться от задачи", s:{smartcontracts:2,ml:1,cyber:1}},
+   {t:"нормально, если задача действительно увлекает", s:{be:1,datasci:1}},
+   {t:"мне комфортнее короткие спринты задач", s:{tiktok:1,sales:1}},
+   {t:"предпочитаю переключаться между разными типами задач", s:{productmanagement:1,mkt:1}}]},
+ {t:"Как ты относишься к провалу первой попытки?", o:[
+   {t:"воспринимаю как часть процесса, пробую снова", s:{indiehacker:2,dropship:1}},
+   {t:"разбираю ошибки и системно исправляю", s:{be:1,productdesign:1}},
+   {t:"тяжело переживаю, стараюсь избегать провалов заранее", s:{finance:1,hr:1}},
+   {t:"использую как повод показать себя с другой стороны", s:{sales:1,personalbrand:1}}]},
+
+ // --- Финальные интегральные вопросы ---
+ {t:"Если бы ты мог(ла) выбрать идеальный рабочий день, что бы в нём было?", o:[
+   {t:"код, кофе и решённая техническая задача", s:{be:2,fullstack:1}},
+   {t:"насыщенный созвонами день с клиентами и командой", s:{sales:2,productmanagement:1}},
+   {t:"тихий день за созданием визуала или видео", s:{graphic:1,videoedit:1,aivideo:1}},
+   {t:"день, где я сам решаю, чем заниматься", s:{solopreneur:2,indiehacker:1}}]},
+ {t:"Какой стиль жизни тебе ближе всего?", o:[
+   {t:"технологичный, продуктовый", s:{fullstack:2,saas:1}},
+   {t:"творческий и эстетичный", s:{branding:2,design3d:1}},
+   {t:"активный, ориентированный на людей", s:{sales:2,community:1}},
+   {t:"предпринимательский, про рост и деньги", s:{ecommerce:2,investing:1}}]},
+ {t:"Насколько важна тебе свобода в графике и локации?", o:[
+   {t:"очень, хочу работать откуда угодно и когда угодно", s:{content:1,telegram:1,indiehacker:1}},
+   {t:"важна, но с командой на связи", s:{uxui:1,mkt:1}},
+   {t:"не критично, важнее стабильность", s:{finance:1,hr:1}},
+   {t:"важна ради своего дела, а не ради отдыха", s:{solopreneur:2,aiagency:1}}]},
+ {t:"Какая метафора твоего будущего дела тебе ближе?", o:[
+   {t:"инженер, который строит сложную систему", s:{be:1,blockchain:1,gamedev:1}},
+   {t:"художник, который создаёт нечто уникальное", s:{graphic:1,aidesign:1,design3d:1}},
+   {t:"капитан, который ведёт команду и корабль к цели", s:{productmanagement:1,aiagency:1,hr:1}},
+   {t:"исследователь, который первым пробует новое", s:{ml:1,web3gen:1,depin:1}}]},
+];
+
+const STEP_META = [
+  {title:"Понять профессию",            icon:"🔎"},
+  {title:"Освоить инструмент",          icon:"🛠️"},
+  {title:"Выполнить первое действие",   icon:"🚀"},
+  {title:"Решить настоящую задачу",     icon:"🎯"},
+  {title:"Получить обратную связь",     icon:"💬"},
+  {title:"Попробовать рабочий процесс", icon:"⚙️"},
+  {title:"Сделать вывод",               icon:"🏁"},
+];
+
+const REFLECTION_QUESTIONS = ["Что понравилось?","Что оказалось неожиданным?","Хотел(а) бы ты заниматься этим дальше?"];
+const STEP_DIFFICULTY = [1,1,1,2,2,3,1];
+
+// steps 1,2,5,7 are shared across all groups — concreteness comes from {placeholders}
+// filled in per-sphere at render time (tool/role/name/community/platform/showTo)
+const GENERIC_STEP = {
+  1:{main:"Найди и изучи профили трёх людей с ролью «{role}» (LinkedIn, Хабр, профильные Telegram-каналы) — открой их проекты и описание опыта. Выпиши 5 задач, которые реально повторяются у всех троих.",
+     mini:"За 15 минут открой 3 вакансии или предложения в направлении «{name}» и выпиши список требований, которые встречаются во всех трёх.",
+     research:"Сравни требования для начинающих и для опытных специалистов направления «{name}» — какие конкретно навыки появляются только на продвинутом уровне.",
+     practice:"Составь список из 10 терминов направления «{name}», которые тебе непонятны, и найди точное определение каждого.",
+     result:"Карта профессии «{name}»"},
+  2:{main:"Пройди официальный вводный туториал {tool} и своими руками, не копируя код и элементы целиком, повтори пример из документации до конца.",
+     mini:"Выучи 10 горячих клавиш или базовых команд {tool} — запиши их в шпаргалку и пользуйся ей всю следующую неделю.",
+     research:"Найди 2 реальных примера использования {tool} в открытом доступе (GitHub, Behance, кейсы) и разбери, из каких элементов они состоят.",
+     practice:"Настрой {tool} с нуля на своём компьютере и сделай свой первый маленький результат — сохрани его как есть, без правок.",
+     result:"Освоенные основы {tool}"},
+  5:{main:"Опубликуй результат своего предыдущего шага в {community} и попроси конкретную обратную связь: что бы поменяли минимум 3 человека.",
+     mini:"Напиши {showTo} один точный вопрос о его повседневной работе в направлении «{name}» — личным сообщением или комментарием.",
+     research:"Изучи 2 примера того, как опытные специалисты направления «{name}» дают друг другу обратную связь — какой тон и структура у сильной критики.",
+     practice:"Внеси в свою работу минимум 2 конкретные правки на основе полученной обратной связи.",
+     result:"Первая обратная связь от практика"},
+  7:{main:"Собери всё, что ты сделал за 6 шагов, в один цельный мини-кейс: задача → процесс → результат — оформи его как раздел портфолио на {platform}.",
+     mini:"Запиши голосовое или текстовое сообщение самому себе на 2 минуты о том, как прошла неделя погружения в «{name}».",
+     research:"Сравни свои ощущения с тем, что говорили специалисты направления «{name}», которых ты изучал на шаге 1 — совпало ли ожидание с реальностью.",
+     practice:"Заполни короткий вывод: 3 вещи, которые понравились, 1 — которая не понравилась, и чёткое решение: идти дальше в «{name}» или нет.",
+     result:"Готовый мини-кейс для портфолио"},
+};
+
+const GROUP_EXTRA = {
+  dev:        {community:"чат разработчиков (например, ru-JS или Хабр Q&A)", platform:"GitHub", showTo:"практикующего разработчика"},
+  vibecoding: {community:"Discord-сообщество Cursor или Claude Code", platform:"GitHub", showTo:"опытного AI-native разработчика"},
+  gamedev:    {community:"чат геймдев-комьюнити (DTF Games, itch.io форум)", platform:"itch.io", showTo:"практикующего геймдизайнера"},
+  cyber:      {community:"чат по кибербезопасности (например, комьюнити Standoff)", platform:"HackerOne / GitHub", showTo:"практикующего пентестера"},
+  data:       {community:"форум Kaggle или чат по Data Science", platform:"Kaggle", showTo:"практикующего дата-сайентиста"},
+  aiagents:   {community:"чат AI-разработчиков и автоматизаторов", platform:"GitHub", showTo:"практикующего AI-инженера"},
+  design:     {community:"дизайн-комьюнити (профильный Telegram-чат)", platform:"Behance", showTo:"практикующего дизайнера"},
+  graphic3d:  {community:"чат графических дизайнеров и 3D-художников", platform:"Behance / ArtStation", showTo:"практикующего дизайнера"},
+  aicreative: {community:"чат AI-креаторов", platform:"Behance / Instagram", showTo:"практикующего AI-креатора"},
+  video:      {community:"чат видеомейкеров и креаторов", platform:"YouTube / TikTok", showTo:"практикующего видеопродюсера"},
+  content:    {community:"чат копирайтеров и контент-маркетологов", platform:"VC.ru / Telegram", showTo:"практикующего копирайтера"},
+  marketing:  {community:"чат маркетологов", platform:"VC.ru", showTo:"практикующего маркетолога"},
+  business:   {community:"чат предпринимателей и e-commerce", platform:"VC.ru", showTo:"практикующего предпринимателя"},
+  finance:    {community:"чат инвесторов и финансистов", platform:"Smart-lab", showTo:"практикующего финансиста"},
+  web3:       {community:"Web3-комьюнити в Discord", platform:"Twitter/X", showTo:"практикующего Web3-специалиста"},
+  peoplesales:{community:"чат HR и продажников", platform:"LinkedIn", showTo:"практикующего специалиста по продажам или HR"},
+  solo:       {community:"чат соло-предпринимателей и indie hackers", platform:"Product Hunt", showTo:"практикующего solo-предпринимателя"},
+};
+
+const PRACTICE_BESPOKE = {
+  dev:{
+    3:{main:"Найди готовый простой шаблон или туториал-проект в направлении «{name}» и повтори его на 100% своими руками, перепечатывая код построчно, а не копируя — так, чтобы объяснить каждую строку своими словами.",
+       mini:"Измени в повторённом примере 3 детали (текст, цвет, параметр логики) и зафиксируй результат.",
+       research:"Сравни свою реализацию с оригиналом и найди 2 места, где твой код получился иначе — разбери, почему.",
+       practice:"Залей результат в свой GitHub-репозиторий с README на 3-5 предложений: что это и как запустить.",
+       result:"Первый повторённый проект"},
+    4:{main:"Напиши программу, которая рассчитывает стоимость заказа с учётом скидки и налога — от ввода данных до вывода готового результата на экране.",
+       mini:"Добавь обработку одного граничного случая: пустой ввод, отрицательное число или некорректные данные.",
+       research:"Найди на Stack Overflow или GitHub 2 чужих решения похожей задачи и сравни со своим подходом.",
+       practice:"Задокументируй решение в 5 пунктах: какие шаги предпринял и с какими трудностями столкнулся.",
+       result:"Первая решённая задача"},
+    6:{main:"Собери небольшой рабочий мини-проект «под заказ»: например, лендинг-страницу или Telegram-бота, который выполняет одно понятное действие.",
+       mini:"Оцени в часах, сколько заняло бы выполнение этой задачи в качестве платного заказа, и сравни оценку с оценкой AI-ассистента.",
+       research:"Прочитай раздел CONTRIBUTING.md любого крупного open-source проекта на GitHub — как устроены код-ревью и деплой в реальных командах.",
+       practice:"Оформи задачу как настоящий тикет: заголовок, описание, критерии готовности (acceptance criteria).",
+       result:"Первый мини-проект (лендинг / бот)"},
+  },
+  vibecoding:{
+    3:{main:"Опиши AI-агенту (Claude Code, Cursor или Windsurf) простую задачу на естественном языке — например, «собери страницу-визитку с формой обратной связи» — и доведи результат до рабочего состояния, вникая в каждый сгенерированный файл.",
+       mini:"Найди в сгенерированном коде одну строку, которую не понимаешь, попроси AI объяснить её и перескажи объяснение своими словами.",
+       research:"Сравни, как по-разному 2 AI-редактора кода решают одну и ту же простую задачу.",
+       practice:"Опубликуй получившийся мини-сайт (например, через Vercel) и сохрани публичную ссылку.",
+       result:"Первый продукт, собранный с AI"},
+    4:{main:"Через AI-агента собери небольшой сервис с реальной логикой — например, калькулятор стоимости услуг с несколькими параметрами — и проверь его на 5 разных входных данных вручную.",
+       mini:"Попроси AI-агента написать тесты для твоей логики и разбери, что именно он проверяет.",
+       research:"Изучи, как минимум 2 практикующих AI-native разработчика описывают свой промпт-процесс — выпиши 3 приёма.",
+       practice:"Задокументируй весь диалог с AI-агентом в отдельный файл — это твой первый «промпт-лог» проекта.",
+       result:"Первая решённая задача с проверенной логикой"},
+    6:{main:"Собери за одну рабочую сессию (2-4 часа) мини-проект по чужому брифу: «простой сайт-визитка для мастера маникюра с формой записи» — от начала до публикации только через диалог с AI-агентом.",
+       mini:"Посчитай, сколько запросов к AI понадобилось и сколько раз пришлось вручную поправить код.",
+       research:"Изучи, как оценивают и продают такие AI-собранные проекты фрилансеры на биржах (Kwork, Upwork) — какой диапазон цен.",
+       practice:"Оформи готовый мини-проект как кейс: скриншот, ссылка, список использованных промптов.",
+       result:"Первый мини-проект под заказ"},
+  },
+  gamedev:{
+    3:{main:"Пройди официальный туториал Unity или Unreal «первая игра» и своими руками повтори одну простую механику — например, персонаж прыгает и собирает монетки.",
+       mini:"Измени 3 параметра механики (скорость, гравитацию, размер объекта) и зафиксируй, как это меняет ощущение от игры.",
+       research:"Сравни 2 инди-игры с похожей механикой и разбери, чем отличается ощущение управления (game feel).",
+       practice:"Сними короткое видео (30 секунд) со своей механикой в действии.",
+       result:"Первая рабочая механика"},
+    4:{main:"Спроектируй и собери один уровень с чёткой целью для игрока: начало, препятствие, награда в конце — уровень должен проходиться от старта до финиша без ошибок.",
+       mini:"Добавь на уровень один неожиданный элемент (ловушку или секрет) и проверь, находят ли его тестовые игроки.",
+       research:"Разбери левел-дизайн одного уровня из известной игры — нарисуй его схему по памяти и сравни с оригиналом.",
+       practice:"Запиши плейтест: дай поиграть 1 человеку и зафиксируй все моменты, где он растерялся.",
+       result:"Первый спроектированный уровень"},
+    6:{main:"Собери мини-игру целиком: одна механика + один уровень + экран старта/победы — играбельный билд, который можно передать другому человеку.",
+       mini:"Оцени, сколько часов ушло на баланс сложности, и сравни с изначальной оценкой.",
+       research:"Изучи, как небольшие инди-студии публикуют первые прототипы на itch.io — что пишут в описании.",
+       practice:"Опубликуй билд на itch.io (можно в статусе «прототип») и собери первые 3 отзыва.",
+       result:"Первый мини-проект (играбельный прототип)"},
+  },
+  cyber:{
+    3:{main:"Пройди вводную лабораторию на TryHackMe или Hack The Box (уровень «Starting Point») и самостоятельно найди первый флаг, документируя каждый шаг.",
+       mini:"За 20 минут просканируй тестовую машину с помощью Nmap и разбери вывод по портам и сервисам.",
+       research:"Сравни 2 write-up'а (разбора) одной и той же лаборатории от разных авторов — какие подходы отличаются.",
+       practice:"Оформи свой первый write-up: что делал, какие команды использовал, какой результат получил.",
+       result:"Первый найденный флаг"},
+    4:{main:"Проведи базовый аудит безопасности одного реального публичного сайта (только пассивными легальными методами: заголовки безопасности, SSL, открытые директории) и составь отчёт из 5 находок.",
+       mini:"Проверь заголовки безопасности любимого сайта через открытый онлайн-сканер и разбери, чего не хватает.",
+       research:"Изучи топ-3 уязвимости из актуального OWASP Top 10 и приведи по одному реальному примеру каждой.",
+       practice:"Оформи находки в формате мини pentest-отчёта: описание, критичность, рекомендация.",
+       result:"Первый отчёт по безопасности"},
+    6:{main:"Зарегистрируйся на платформе bug bounty (например, Standoff 365 или HackerOne) и проанализируй правила программы одного реального проекта — определи, какие типы уязвимостей в скоупе.",
+       mini:"Оцени, сколько времени может занять полноценный поиск уязвимости в рамках одной программы.",
+       research:"Изучи 2 реальных публичных disclosed-отчёта об уязвимостях на HackerOne — как устроена структура сильного репорта.",
+       practice:"Составь собственный чек-лист из 10 пунктов для первого прохода по веб-приложению в рамках bug bounty.",
+       result:"Первый мини-проект (чек-лист для bug bounty)"},
+  },
+  data:{
+    3:{main:"Возьми готовый датасет с Kaggle и повтори базовый анализ из чужого публичного ноутбука своими руками, построчно объясняя себе, что делает каждая ячейка кода.",
+       mini:"Построй 3 простых графика (гистограмма, boxplot, scatter) по датасету и опиши, что на них видно.",
+       research:"Сравни 2 разных ноутбука с анализом одного и того же датасета — какие выводы совпадают, а какие различаются.",
+       practice:"Сохрани свой ноутбук на Kaggle или GitHub с понятными комментариями.",
+       result:"Первый повторённый анализ данных"},
+    4:{main:"Реши одну прикладную задачу целиком: построй модель, которая предсказывает конкретный показатель (например, цену квартиры по параметрам), и оцени её точность метрикой.",
+       mini:"Проверь модель на 5 новых примерах вручную и сравни предсказание с реальностью.",
+       research:"Изучи, какие 2 альтернативных алгоритма могли бы решить эту же задачу, и сравни их плюсы и минусы.",
+       practice:"Задокументируй весь путь: от сырых данных до финальной метрики качества модели.",
+       result:"Первая обученная модель"},
+    6:{main:"Оформи законченный мини-проект: датасет, анализ, модель (если применимо) и 3 конкретных бизнес-вывода, которые можно сделать из результата.",
+       mini:"Посчитай, сколько времени заняла каждая часть работы (очистка данных, анализ, моделирование) — где ушло больше всего времени.",
+       research:"Изучи, как оформляют финальные data-проекты на Kaggle топ-участники (Notebooks с наибольшим количеством голосов).",
+       practice:"Опубликуй проект как публичный кейс с кратким summary для нетехнического читателя.",
+       result:"Первый мини-проект (data-кейс)"},
+  },
+  aiagents:{
+    3:{main:"Собери простую автоматизацию в Make или n8n, которая выполняет одно понятное действие: например, получает сообщение из формы и отправляет уведомление в Telegram.",
+       mini:"Добавь в цепочку одно условие (если/то) и протестируй оба сценария вручную.",
+       research:"Найди 2 готовых публичных шаблона автоматизации в библиотеке Make/n8n и разбери, из каких блоков они состоят.",
+       practice:"Запиши короткое видео экрана (2 минуты), где показываешь, как работает твоя автоматизация.",
+       result:"Первая рабочая автоматизация"},
+    4:{main:"Спроектируй AI-агента, который решает одну реальную многошаговую задачу — например, читает входящие заявки, классифицирует их по теме и предлагает ответ — и собери прототип на Claude Agent SDK/LangChain или как детальную схему с промптами.",
+       mini:"Протестируй агента на 5 разных входных сообщениях и зафиксируй, где он ошибся.",
+       research:"Изучи минимум 2 реальных кейса внедрения AI-агентов в бизнес (блоги компаний, кейсы) — как устроена архитектура.",
+       practice:"Задокументируй системный промпт и логику агента в отдельном файле.",
+       result:"Первый прототип AI-агента"},
+    6:{main:"Оформи один законченный кейс внедрения: возьми небольшой бизнес (реальный или знакомый) и распиши для него полное решение по автоматизации одного процесса — с оценкой экономии часов и денег.",
+       mini:"Посчитай ROI: сколько часов в месяц экономит твоё решение и сколько это стоит в деньгах при средней ставке.",
+       research:"Изучи 3 реальных прайса на автоматизацию/AI-консалтинг у практикующих специалистов — пойми вилку цен.",
+       practice:"Оформи предложение (оффер) на 1 страницу: проблема, решение, цена, срок.",
+       result:"Первый мини-проект (кейс + оффер)"},
+  },
+  design:{
+    3:{main:"Повтори этот экран: возьми за основу любой существующий экран популярного приложения и воссоздай его в Figma максимально точно, используя Auto Layout и компоненты.",
+       mini:"Замени в своей копии 3 элемента (текст, иконку, цвет) и сравни, как меняется восприятие экрана.",
+       research:"Найди 2 альтернативных решения того же экрана у приложений-конкурентов и сравни подходы к иерархии информации.",
+       practice:"Экспортируй финальный экран как изображение и сохрани файл Figma с понятным названием.",
+       result:"Первый макет"},
+    4:{main:"Спроектируй с нуля один экран для реальной задачи: например, экран оформления заказа для интернет-магазина — с учётом пустых состояний, ошибок и мобильной версии.",
+       mini:"Проведи собственное 5-секундное тестирование: покажи экран другу на 5 секунд и спроси, что он понял.",
+       research:"Изучи, как 2 крупных сервиса решают такой же экран, и сравни подходы.",
+       practice:"Собери прототип с 1 кликабельным переходом и протестируй его на 1 человеке.",
+       result:"Первый спроектированный экран"},
+    6:{main:"Собери законченный мини-проект: оформи карточку товара или экран приложения полностью — от wireframe до финального визуала с реальным (или правдоподобным) контентом.",
+       mini:"Оцени, сколько итераций потребовалось от первого наброска до финальной версии.",
+       research:"Изучи, как оформляют похожие кейсы на Behance/Dribbble топовые дизайнеры — какая структура подачи работы.",
+       practice:"Оформи кейс с описанием задачи, процесса и результата — как для портфолио.",
+       result:"Первый мини-проект (готовый экран/карточка)"},
+  },
+  graphic3d:{
+    3:{main:"Найди 3 референса в направлении «{name}» и создай свою композицию, вдохновляясь их структурой, цветом и композицией — не копируя один в один.",
+       mini:"Попробуй 3 разных цветовых палитры для одной и той же композиции и выбери лучшую.",
+       research:"Разбери, почему выбранные тобой референсы «цепляют»: форма, контраст, композиция — выпиши 3 конкретные причины.",
+       practice:"Сохрани финальный файл в 2 форматах: рабочем (PSD/AI/Blend) и готовом для показа (PNG/JPG/MP4).",
+       result:"Первая авторская работа"},
+    4:{main:"Создай логотип или визуальный знак для реального (или вымышленного) локального бизнеса с учётом его сферы деятельности и характера.",
+       mini:"Сделай 3 разных варианта одной идеи и выбери сильнейший, аргументировав выбор.",
+       research:"Изучи 2 логотипа известных брендов в этой же нише и разбери, какие смыслы заложены в форме и цвете.",
+       practice:"Подготовь мини-презентацию логотипа: сам знак + 2 варианта применения (визитка, соцсети).",
+       result:"Первый логотип/знак"},
+    6:{main:"Собери законченный мини-проект: оформи карточку товара, рекламный баннер или короткую motion-заставку (5-10 секунд) с реальным брифом «для клиента».",
+       mini:"Замерь время выполнения от брифа до готового файла — сколько заняла каждая стадия.",
+       research:"Изучи 3 прайса фрилансеров в направлении «{name}» на биржах — какая вилка цен за подобную работу.",
+       practice:"Оформи готовую работу как кейс с описанием ТЗ и решения.",
+       result:"Первый мини-проект (готовая работа для клиента)"},
+  },
+  aicreative:{
+    3:{main:"Сгенерируй 10 вариантов одного и того же изображения/видео/трека, меняя только промпт, и выбери 3 лучших — зафиксируй, какая формулировка сработала лучше всего.",
+       mini:"Добавь в промпт 3 конкретных технических параметра (стиль, освещение/темп, ракурс) и сравни результат до и после.",
+       research:"Изучи 2 примера сильных AI-креативов в направлении «{name}» и разбери, из каких элементов промпта они, вероятно, состоят.",
+       practice:"Сохрани финальный результат и рядом — использованный промпт, чтобы позже повторить приём.",
+       result:"Первая удачная AI-генерация"},
+    4:{main:"Создай законченный AI-креатив под конкретную задачу: например, 15-секундный рекламный AI-ролик для реального продукта или AI-иллюстрацию для обложки поста — с чётким посылом и целевой аудиторией.",
+       mini:"Собери промпт-цепочку минимум из 3 шагов (черновой промпт → уточнение → финальная генерация) и сохрани все версии.",
+       research:"Изучи, как минимум 2 бренда уже используют AI-креатив в реальной рекламе — что сработало.",
+       practice:"Оформи финальный результат с описанием задачи и использованных инструментов.",
+       result:"Первый AI-креатив под задачу"},
+    6:{main:"Собери законченный мини-проект под условного клиента: серию из 3-5 связанных AI-креативов в одном стиле (например, серия постов или короткий ролик с озвучкой).",
+       mini:"Оцени время и стоимость подписок на инструменты, которые ты использовал — посчитай себестоимость проекта.",
+       research:"Изучи 3 реальных прайса AI-креаторов на биржах фриланса — пойми вилку цен на такой формат.",
+       practice:"Оформи серию как единый кейс-портфолио с описанием концепции.",
+       result:"Первый мини-проект (серия AI-креативов)"},
+  },
+  video:{
+    3:{main:"Сними и смонтируй свой первый короткий ролик (30-60 секунд) на простую тему, которую ты хорошо знаешь — от идеи до готового файла.",
+       mini:"Пересмотри свой ролик и засеки момент, где тебе самому стало скучно смотреть — сократи его.",
+       research:"Разбери 2 ролика в этой же нише с большим количеством просмотров — из чего состоят первые 3 секунды.",
+       practice:"Добавь субтитры и обложку (превью) к своему ролику.",
+       result:"Первый смонтированный ролик"},
+    4:{main:"Сделай ролик с чёткой структурой «проблема → решение → вывод» на тему, которая реально кому-то полезна — с расчётом на конкретного зрителя.",
+       mini:"Сформулируй заголовок ролика в 3 вариантах и выбери самый цепляющий, объяснив почему.",
+       research:"Изучи, как 2 успешных автора в нише формулируют заголовки и обложки — найди общий паттерн.",
+       practice:"Опубликуй ролик на любой площадке (даже с 0 подписчиков) и зафиксируй первые реакции.",
+       result:"Первый опубликованный ролик с чёткой структурой"},
+    6:{main:"Собери законченный мини-проект: серию из 3 связанных роликов (или один эпизод подкаста/стрима) в едином формате и стиле — как будто это начало настоящего канала.",
+       mini:"Посчитай, сколько времени в среднем ушло на один ролик от идеи до публикации.",
+       research:"Изучи медиакит 2 небольших блогеров в похожей нише — как они презентуют себя брендам.",
+       practice:"Собери собственный простой медиакит на 1 страницу: тема, аудитория, форматы, примеры работ.",
+       result:"Первый мини-проект (серия роликов + медиакит)"},
+  },
+  content:{
+    3:{main:"Найди рекламу двух конкурирующих брендов (например, Nike и Adidas или Apple и Samsung) и выпиши по три причины, почему одна цепляет сильнее другой.",
+       mini:"Перепиши более слабый из двух рекламных текстов, сохранив смысл, но усилив подачу.",
+       research:"Изучи 3 сильных примера текстов в направлении «{name}» и разбери их структуру: с чего начинаются, чем заканчиваются.",
+       practice:"Напиши свой первый короткий текст (150-200 слов) на свободную тему в этом жанре.",
+       result:"Первый разобранный рекламный кейс"},
+    4:{main:"Напиши продающий текст (пост, лендинг-блок или email) для реального небольшого продукта — с заголовком, структурой выгод и понятным призывом к действию.",
+       mini:"Сократи свой текст на 30%, не потеряв смысл, и сравни, какая версия сильнее.",
+       research:"Изучи 2 чужих продающих текста в похожей нише и разбери их структуру по формуле (например, AIDA).",
+       practice:"Прогони текст через проверку читаемости (Главред или аналог) и исправь 3 самых слабых места.",
+       result:"Первый продающий текст"},
+    6:{main:"Собери законченный мини-проект: серию из 5 постов для Telegram-канала на одну тему — с разными форматами (личная история, польза, разбор, вопрос аудитории, продажа).",
+       mini:"Оцени, сколько времени ушло на написание каждого поста, и найди самый долгий по времени формат.",
+       research:"Изучи 2 реальных Telegram-канала в похожей теме — как часто и в каком тоне они публикуют контент.",
+       practice:"Оформи всю серию постов в единый контент-план на неделю вперёд.",
+       result:"Первый мини-проект (контент-план на неделю)"},
+  },
+  marketing:{
+    3:{main:"Проанализируй рекламную кампанию известного бренда (найди 3 его реальных креатива) и распиши: аудитория, посыл, призыв к действию, сильные и слабые стороны.",
+       mini:"Придумай альтернативный заголовок для одного из этих креативов и объясни, чем твой вариант отличается.",
+       research:"Сравни, как 2 конкурента в одной нише продвигаются по-разному — в каких каналах и с каким посылом.",
+       practice:"Оформи разбор в виде короткой презентации на 3-5 слайдов.",
+       result:"Первый рекламный анализ"},
+    4:{main:"Придумай оффер для реального (или вымышленного) небольшого продукта: чёткое предложение с выгодой, отличающее его от конкурентов, и протестируй формулировку на 3 знакомых.",
+       mini:"Сформулируй 3 разных версии одного оффера и выбери сильнейшую по реакции тестовой аудитории.",
+       research:"Изучи 2 реальных примера сильных офферов в этой же нише и разбери их структуру.",
+       practice:"Оформи оффер в виде готового рекламного текста для одного канала (соцсети, лендинг, email).",
+       result:"Первый оффер"},
+    6:{main:"Собери простую воронку продаж для небольшого продукта: 3 канала привлечения + посадочная страница/сообщение + предложение — опиши путь клиента от первого касания до покупки.",
+       mini:"Посчитай примерный бюджет и ожидаемое количество лидов на каждом этапе воронки.",
+       research:"Изучи 2 реальные воронки конкурентов (подпишись на их рассылку/бота) и разбери шаги.",
+       practice:"Оформи воронку как схему (в Miro/FigJam) с указанием каналов, сообщений и метрик на каждом шаге.",
+       result:"Первый мини-проект (собранная воронка)"},
+  },
+  business:{
+    3:{main:"Изучи историю одного небольшого успешного бизнеса или стартапа в направлении «{name}» и выпиши 3 ключевых решения, которые определили его рост.",
+       mini:"Сформулируй за 15 минут 3 идеи продукта/бизнеса, которые ты мог бы запустить в этой сфере уже сейчас, имея минимальные ресурсы.",
+       research:"Изучи 2 конкурентов для одной из своих идей — их цены, позиционирование и слабые места.",
+       practice:"Выбери 1 идею из трёх и опиши её на половину страницы: кто клиент, какая проблема решается, чем ты лучше.",
+       result:"Первая проверенная бизнес-идея"},
+    4:{main:"Проведи 3 реальных мини-интервью с потенциальными клиентами твоей идеи (друзья, знакомые, тематические чаты) — спроси, была бы им интересна такая идея и сколько они готовы платить.",
+       mini:"Задай в интервью один провокационный вопрос: «Что бы заставило вас отказаться от этого?» и зафиксируй ответы.",
+       research:"Изучи, как проводят проблемные интервью практикующие предприниматели — какие вопросы работают лучше всего.",
+       practice:"Сведи результаты интервью в таблицу: кто, что сказал, какой вывод.",
+       result:"Первое клиентское интервью"},
+    6:{main:"Сделай финансовый расчёт своей идеи: посчитай unit-экономику — себестоимость, цену, маржу и точку безубыточности при разных объёмах продаж.",
+       mini:"Посчитай, сколько единиц товара/клиентов нужно продать в первый месяц, чтобы окупить стартовые вложения.",
+       research:"Изучи, как считают unit-экономику 2 реальных бизнеса в этой нише, и сравни свои цифры с их.",
+       practice:"Оформи расчёт в простой таблице (Google Sheets) с формулами, а не только цифрами.",
+       result:"Первый мини-проект (финансовый расчёт бизнес-идеи)"},
+  },
+  finance:{
+    3:{main:"Открой отчётность одной публичной компании (годовой отчёт) и найди в ней 3 ключевых показателя: выручку, прибыль и долговую нагрузку — сформулируй вывод, растёт компания или нет.",
+       mini:"Сравни эти же 3 показателя с показателями компании-конкурента за тот же период.",
+       research:"Изучи, как 2 практикующих аналитика разбирают отчётность в открытых видео/статьях — какие метрики они считают ключевыми.",
+       practice:"Оформи свой разбор в виде короткой заметки на полстраницы с выводом.",
+       result:"Первый разбор отчётности"},
+    4:{main:"Собери учебный инвестиционный/торговый портфель на бумаге или демо-счёте из 5 активов с обоснованием каждого выбора — без вложения реальных денег.",
+       mini:"Рассчитай, как изменилась бы стоимость портфеля за последний месяц по историческим данным.",
+       research:"Изучи 2 разные стратегии (например, консервативная и агрессивная) и сравни их риск и потенциальную доходность.",
+       practice:"Заведи таблицу учёта портфеля с ценами входа и текущей стоимостью.",
+       result:"Первый учебный портфель"},
+    6:{main:"Веди торговый/инвестиционный журнал минимум 5 дней подряд на демо-счёте или бумаге: что купил/продал, почему, что почувствовал в моменте принятия решения.",
+       mini:"Посчитай свой результат (в % или условных деньгах) за эти 5 дней и сравни с ожиданиями.",
+       research:"Изучи, как ведут публичные торговые журналы 2 практикующих трейдера/инвестора — что они фиксируют кроме цифр.",
+       practice:"Оформи журнал в структурированную таблицу: дата, действие, причина, результат, эмоция.",
+       result:"Первый мини-проект (торговый/инвестиционный журнал)"},
+  },
+  web3:{
+    3:{main:"Создай некастодиальный кошелёк (например, MetaMask) на тестовой сети, получи тестовые токены из крана (faucet) и соверши свою первую тестовую транзакцию.",
+       mini:"Найди эту транзакцию в блокчейн-эксплорере (Etherscan) и разбери, из каких полей она состоит.",
+       research:"Сравни 2 разных блокчейн-сети по скорости и стоимости транзакций.",
+       practice:"Сделай скриншот своей первой транзакции и подпиши, что на нём означает каждое поле.",
+       result:"Первая транзакция в блокчейне"},
+    4:{main:"Изучи один реальный DeFi/DAO/Web3-протокол изнутри: прочитай его документацию и токеномику, и напиши краткий разбор — что делает протокол, в чём его риск, кто им управляет.",
+       mini:"Найди в документации протокола 3 термина, которые тебе непонятны, и найди их точные определения.",
+       research:"Сравни этот протокол с одним его прямым конкурентом — в чём отличия в модели.",
+       practice:"Оформи разбор в виде мини-отчёта на полстраницы, как будто готовишь его для инвестиционного комьюнити.",
+       result:"Первый разбор протокола"},
+    6:{main:"Собери законченный мини-проект: детальный ончейн-анализ одного адреса или проекта через Etherscan/Dune Analytics — сколько у него активности, какие паттерны поведения.",
+       mini:"Оцени, сколько времени занял сбор данных вручную, и подумай, что из этого можно было бы автоматизировать.",
+       research:"Изучи 2 публичных дашборда на Dune Analytics по похожей теме — как оформлены визуализации.",
+       practice:"Оформи находки в виде мини-исследования с 3 графиками/таблицами и выводом.",
+       result:"Первый мини-проект (ончейн-исследование)"},
+  },
+  peoplesales:{
+    3:{main:"Проведи ролевую тренировочную продажу или собеседование с другом: 10 минут звонка/встречи, где ты — менеджер по продажам или рекрутер, а друг — клиент/кандидат.",
+       mini:"Задай в разговоре минимум 3 открытых уточняющих вопроса и зафиксируй, какие ответы получил.",
+       research:"Изучи 2 реальных скрипта продаж или структуры интервью и сравни со своим подходом.",
+       practice:"Запиши разговор (с согласия собеседника) и переслушай, отметив 2 момента, которые можно улучшить.",
+       result:"Первое тренировочное интервью/звонок"},
+    4:{main:"Разбери реальный кейс: найм сотрудника на конкретную роль или закрытие сделки с возражением клиента — распиши пошагово, как бы ты это сделал, включая обработку минимум 2 возражений.",
+       mini:"Сформулируй 3 конкретных вопроса, которые ты бы задал в этой ситуации, чтобы лучше понять собеседника.",
+       research:"Изучи, как 2 практикующих специалиста публично разбирают похожие кейсы (видео, статьи, посты).",
+       practice:"Оформи свой разбор кейса как документ на полстраницы с чётким планом действий.",
+       result:"Первый разобранный кейс"},
+    6:{main:"Проведи настоящий разговор с реальным человеком в формате направления «{name}»: предложи знакомому предпринимателю помощь в продажах или проведи мини-собеседование с другом, ищущим работу — и получи честную обратную связь по итогу.",
+       mini:"Оцени разговор по 3 критериям (структура, вовлечённость, результат) от 1 до 5.",
+       research:"Изучи, как в реальных компаниях устроен процесс от первого контакта до закрытия (сделки или найма).",
+       practice:"Оформи итоги разговора и следующий шаг: что бы ты сделал(а) дальше в реальной работе.",
+       result:"Первый мини-проект (реальный разговор с результатом)"},
+  },
+  solo:{
+    3:{main:"Сформулируй свою экспертную позицию в одном предложении: кто ты, для кого, в чём твоя уникальность — и опубликуй один пост с этой формулировкой в любой открытой соцсети.",
+       mini:"Собери обратную связь минимум от 3 человек: понятно ли им, чем ты можешь быть полезен.",
+       research:"Изучи 2 персональных бренда/сообщества в близкой теме и разбери, как они формулируют свою позицию.",
+       practice:"Оформи свою позицию в виде короткого bio для соцсетей (150 символов).",
+       result:"Первая сформулированная позиция"},
+    4:{main:"Собери свой первый маленький продукт или предложение полностью в одиночку — например, мини-гайд, консультацию или простой сервис — от идеи до готового к продаже состояния, не привлекая никого в помощь.",
+       mini:"Оцени в часах, сколько реально заняла каждая часть работы (идея, создание, оформление).",
+       research:"Изучи, как минимум 2 solo-предпринимателя публично документируют процесс создания своих продуктов (build in public).",
+       practice:"Опубликуй анонс своего продукта/предложения в 1 канале и зафиксируй первые реакции.",
+       result:"Первый созданный в одиночку продукт"},
+    6:{main:"Собери законченный мини-проект: запусти маленькое сообщество или предложи свою услугу/продукт 5 реальным людям напрямую (в личных сообщениях, а не постом) и доведи хотя бы один диалог до конкретного следующего шага.",
+       mini:"Посчитай конверсию: сколько из 5 обращений привели к реальному следующему шагу.",
+       research:"Изучи, как 2 практикующих solo-предпринимателя находили своих первых 10 клиентов/участников.",
+       practice:"Оформи итог как мини-отчёт: что сработало, что нет, что изменишь в следующий раз.",
+       result:"Первый мини-проект (прямой outreach к 5 людям)"},
+  },
+};
+
+// 24-week universal pedagogical arc — concreteness added by {name}/{tool}/{platform}/{showTo}/{community} placeholders
+const WEEK_PATTERN = [
+  "Изучи и настрой {tool} — пройди быстрый старт и сделай первую крошечную операцию своими руками.",
+  "Освой горячие клавиши и базовые команды {tool} — так, чтобы не заглядывать в шпаргалку на десятый раз.",
+  "Повтори (скопируй) один готовый проект или пример в направлении «{name}», чтобы понять его логику изнутри.",
+  "Получи первую обратную связь по своему повтору от {showTo} в {community}.",
+  "Сформулируй идею собственного мини-проекта в направлении «{name}» — опиши её в 5 предложениях.",
+  "Сделай первую, черновую версию собственного проекта — пусть будет неидеально, важно закончить.",
+  "Покажи первую версию минимум 3 людям и собери критику — не защищайся, просто фиксируй.",
+  "Исправь ошибки и доведи первую версию проекта до состояния «не стыдно показать».",
+  "Сделай вторую версию проекта — учти всю обратную связь, накопленную за предыдущие недели.",
+  "Оформи кейс по проекту: задача → процесс → результат, понятно для постороннего человека.",
+  "Собери 2-3 своих лучших работы в единое портфолио на {platform}.",
+  "Покажи портфолио {showTo} и запроси честную оценку по 5-балльной шкале.",
+  "Опубликуй одну из своих работ публично — в профиле, канале или на площадке направления «{name}».",
+  "Найди и попробуй выполнить одну небольшую задачу с фриланс-биржи в направлении «{name}» — даже без оплаты, как тренировку.",
+  "Пройди мини-челлендж в направлении «{name}» или устрой его себе сам с дедлайном 48 часов.",
+  "Обнови портфолио с учётом всего фидбэка, который накопился за 16 недель.",
+  "Подготовь резюме или питч-медиакит под направление «{name}» — 1 страница, которую не стыдно отправить.",
+  "Откликнись на 5 реальных вакансий/заказов или предложи свои услуги напрямую 5 потенциальным клиентам.",
+  "Пройди хотя бы одно тестовое задание, пробное интервью или пробную встречу с клиентом.",
+  "Собери обратную связь после первых откликов — что говорят чаще всего, что стоит поправить.",
+  "Договорись о первом платном (или пробном оплачиваемом) сотрудничестве в направлении «{name}».",
+  "Выполни свой первый платный или пробный заказ от начала до сдачи результата.",
+  "Собери отзыв от заказчика или работодателя и зафиксируй кейс с измеримым результатом.",
+  "Подведи итоги 24 недель и поставь себе конкретную цель на следующие полгода в направлении «{name}».",
+];
+
+const CHECKPOINTS = [
+  {week:4,  title:"Первые базовые навыки",           desc:"Ты освоил(а) {tool} и на практике знаешь, из чего состоит работа в направлении «{name}»."},
+  {week:8,  title:"Первый полноценный проект",       desc:"У тебя есть законченный проект в направлении «{name}», который не стыдно показать."},
+  {week:12, title:"Первое портфолио",                 desc:"Портфолио с несколькими работами готово и опубликовано на {platform}."},
+  {week:16, title:"Первый отклик / тестовое задание", desc:"Ты попробовал(а) реальную рабочую задачу направления «{name}» и обновил(а) портфолио с учётом фидбэка."},
+  {week:20, title:"Первое предложение или собеседование", desc:"Ты откликнулся(-ась) на реальные вакансии или заказы и прошёл(а) хотя бы один настоящий отбор."},
+  {week:24, title:"Первый заработок",                 desc:"Ты выполнил(а) первый платный (или пробный оплачиваемый) заказ в направлении «{name}» и получил(а) отзыв."},
+];
+
+const ROADMAP_BANKS = {
+  dev:{
+    learn:["Основы Git и веток","Структуры данных и сложность алгоритмов","REST API и работа с бэкендом","Адаптивная вёрстка (Flexbox/Grid)","Тестирование кода (unit-тесты)","Основы баз данных и SQL","Асинхронность и Promise/async-await","Основы Docker и деплоя"],
+    watch:["Запись доклада с любой профильной конференции","Стрим практикующего разработчика в прямом эфире","Разбор чужого pull request на живом код-ревью","Туториал по новому для тебя фреймворку","Интервью с разработчиком о его карьерном пути","Демо нового релиза инструмента из твоего стека"],
+    read:["«Чистый код» Роберт Мартин","«Совершенный код» Стив Макконнелл","Документация MDN Web Docs","«Грокаем алгоритмы» Адитья Бхаргава","Блог разработчика на Хабре по твоей теме"],
+    portfolio:["Репозиторий с 3 учебными проектами и README","Личный сайт-визитка с описанием стека","Кейс одного проекта с описанием задачи и решения","Профиль на GitHub с закреплёнными репозиториями","Скриншоты интерфейса и ссылка на демо","Раздел «обо мне» с технологиями и ролью"],
+    platforms:["GitHub","hh.ru / Хабр Карьера","Stack Overflow","LinkedIn","Kwork / Habr Freelance","Discord-комьюнити разработчиков"],
+    people:["Senior-разработчик в твоём стеке","Тимлид небольшой команды","Выпускник буткемпа, недавно нашедший работу","HR/рекрутер в IT-компании","Автор технического блога","Участник профильного чата"],
+    skills:["Git и контроль версий","Работа с REST API","Написание unit-тестов","Отладка (debugging)","Работа с базами данных","Чтение чужого кода","Оптимизация производительности","Работа с командной строкой","Основы CI/CD","Код-ревью","Проектирование структуры проекта","Работа с переменными окружения","Асинхронное программирование","Базовая безопасность приложений","Документирование кода","Оценка сроков задачи"]},
+  vibecoding:{
+    learn:["Промпт-инжиниринг для генерации кода","Чтение и понимание сгенерированного кода","Git для версионирования AI-проектов","Структура современного веб-приложения","Работа с переменными окружения и секретами","Основы деплоя (Vercel/Railway)","Разница между AI-агентами и автодополнением","Отладка кода, который ты не писал сам"],
+    watch:["Стрим сборки продукта с Claude Code/Cursor в реальном времени","Сравнение 2 AI-редакторов кода на одной задаче","Разбор системного промпта для агента","Демо новой функции AI-редактора кода","Интервью с AI-native разработчиком","Кейс запуска проекта за один день с помощью AI"],
+    read:["Официальная документация Claude Code / Cursor","Гайд по эффективному промптингу для разработки","Блог о вайб-кодинге и AI-native разработке","«Чистый код» Роберт Мартин — для оценки AI-кода","Changelog используемого AI-инструмента"],
+    portfolio:["3 мини-продукта, собранных с AI, с публичными ссылками","Промпт-лог одного из проектов","Кейс «от идеи до продукта за день»","Профиль на GitHub с AI-собранными репозиториями","Скринкаст процесса создания одного продукта","Список инструментов и связки, которую ты используешь"],
+    platforms:["GitHub","Vercel","Product Hunt","Twitter/X (build in public)","Kwork / Upwork","Discord-комьюнити Cursor/Claude"],
+    people:["AI-native разработчик с публичными кейсами","Индихакер, публикующий свои проекты","Технический фаундер стартапа","Участник Discord-комьюнити AI-инструмента","Скептично настроенный к AI-коду разработчик — для баланса мнений","Фрилансер, берущий AI-заказы"],
+    skills:["Промпт-инжиниринг для кода","Чтение AI-сгенерированного кода","Быстрое прототипирование","Работа с Git","Базовый деплой приложений","Оценка качества AI-решения","Формулирование ТЗ для AI-агента","Отладка через диалог с AI","Работа с API","Управление несколькими AI-инструментами","Проверка кода на безопасность","Документирование промптов","Итеративное уточнение задачи","Базовое понимание архитектуры","Работа с переменными окружения","Публикация готового продукта"]},
+  gamedev:{
+    learn:["Основы игрового движка (Unity/Unreal)","C# или Blueprints/C++ базовый синтаксис","Физика и коллизии","Игровой дизайн и баланс сложности","Работа с анимациями персонажей","Оптимизация под слабые устройства","Звук и музыка в игре","Публикация билда игры"],
+    watch:["Devlog инди-разработчика","Разбор игровых механик известной инди-игры","Стрим геймдизайнера, собирающего уровень","Туториал по конкретной фиче движка","Питч успешной инди-игры на конференции","Пострелизный разбор запуска игры на Steam"],
+    read:["«Искусство геймдизайна» Джесси Шелл","Материалы Unity Learn / Unreal Learning","Блог разработчика о постмортемах игр","Форум TIGSource о разработке инди-игр","Кейсы разработчиков на itch.io"],
+    portfolio:["Играбельный прототип с описанием механики","Devlog-запись о процессе разработки","Схема уровня с пояснениями дизайна","Профиль на itch.io с опубликованными билдами","Ролик геймплейного трейлера на 30 секунд","Список использованных ассетов и инструментов"],
+    platforms:["itch.io","Steam (Steamworks для разработчиков)","GitHub","DTF Games","Discord-комьюнити геймдева","ArtStation"],
+    people:["Практикующий геймдизайнер","Инди-разработчик с выпущенной игрой","Художник по игровым ассетам","Композитор игровой музыки","Тестировщик игр (QA)","Организатор локального гейм-джема"],
+    skills:["Основы игрового движка","Скриптинг игровой логики","Левел-дизайн","Балансировка сложности","Работа с ассетами","Базовая анимация персонажей","Оптимизация под платформу","Плейтестирование","Версионный контроль для игр","Звуковой дизайн в игре","UI игры (HUD, меню)","Публикация билда","Сбор обратной связи от игроков","Итерация по фидбэку","Геймдизайн-документ","Работа с багтрекером"]},
+  cyber:{
+    learn:["Основы сетей (TCP/IP, DNS, HTTP)","Основы Linux и командной строки","OWASP Top 10 уязвимостей","Основы криптографии","Сканирование и разведка (reconnaissance)","Работа с Burp Suite","Права доступа и модели безопасности","Основы социальной инженерии (для защиты от неё)"],
+    watch:["Разбор реального CTF-задания","Стрим этичного хакера, проходящего лабораторию","Доклад с конференции по кибербезопасности","Разбор реального инцидента безопасности","Демо инструмента (Burp Suite/Nmap) в действии","Интервью с практикующим пентестером"],
+    read:["«The Web Application Hacker's Handbook»","OWASP Testing Guide","Write-up'ы лабораторий Hack The Box","«Kali Linux Revealed»","Блог практикующего security-исследователя"],
+    portfolio:["Write-up пройденной лаборатории (TryHackMe/HTB)","Отчёт по учебному аудиту сайта","Профиль на Hack The Box/TryHackMe с рейтингом","Чек-лист для pentest'а веб-приложения","Список найденных учебных уязвимостей","Сертификат или бейдж за пройденный курс"],
+    platforms:["TryHackMe","Hack The Box","HackerOne","Standoff 365","GitHub","LinkedIn"],
+    people:["Практикующий pentester","SOC-аналитик в компании","Bug bounty охотник с реальными находками","Организатор CTF-команды","Специалист по compliance/ИБ","Участник тематического чата"],
+    skills:["Основы сетей","Работа с Linux","Сканирование портов и сервисов","Поиск уязвимостей веб-приложений","Работа с Burp Suite","Написание pentest-отчёта","Основы криптографии","OWASP Top 10 на практике","Социальная инженерия (теория)","Работа с эксплойтами в учебной среде","Анализ логов","Основы форензики","Понимание CVE и CVSS","Этика и границы легального хакинга","Bug bounty методология","Презентация находок заказчику"]},
+  data:{
+    learn:["Python для анализа данных (Pandas, NumPy)","Статистика и вероятность","SQL-запросы к базам данных","Визуализация данных (Matplotlib/Seaborn)","Основы машинного обучения (scikit-learn)","Очистка и предобработка данных","A/B-тестирование и его интерпретация","Основы работы с большими данными"],
+    watch:["Разбор Kaggle-соревнования от топ-участника","Доклад с конференции по Data Science","Туториал по конкретной библиотеке (Pandas/scikit-learn)","Интервью с практикующим дата-сайентистом","Стрим анализа реального датасета","Кейс внедрения ML-модели в продакшн"],
+    read:["«Python для анализа данных» Уэс Маккинни","«Storytelling with Data» Коул Нафлик","Документация Pandas и scikit-learn","Вводный учебник по статистике","Блог практикующего аналитика на Хабре"],
+    portfolio:["Kaggle-ноутбук с полным анализом датасета","Дашборд с ключевыми метриками (Power BI/Tableau)","Кейс с бизнес-выводами на основе данных","Профиль на Kaggle с рейтингом","GitHub-репозиторий с проектами по DS","Презентация результатов для нетехнической аудитории"],
+    platforms:["Kaggle","GitHub","LinkedIn","hh.ru (аналитик данных)","Coursera / Stepik","Профильный Data Science чат"],
+    people:["Практикующий Data Scientist","Продуктовый аналитик в компании","ML-инженер","Участник Kaggle-соревнований","Преподаватель курса по DS","BI-аналитик"],
+    skills:["Python для данных","SQL-запросы","Статистический анализ","Визуализация данных","Очистка данных","Построение ML-моделей","Оценка качества модели","Работа с Jupyter Notebook","A/B-тестирование","Работа с большими датасетами","Формулирование бизнес-гипотез","Презентация данных","Feature engineering","Работа с пропущенными значениями","Кросс-валидация","Базовый деплой модели"]},
+  aiagents:{
+    learn:["Основы no-code автоматизации (Make/n8n)","Работа с API нейросетей (Claude/OpenAI)","Проектирование агентных цепочек","Основы Python для интеграций","Работа с векторными базами данных","Function calling и инструменты для LLM","Картирование бизнес-процессов","Расчёт ROI автоматизации"],
+    watch:["Демо сборки автоматизации в Make/n8n от практика","Кейс внедрения AI-агента в компанию","Доклад про архитектуру AI-агентов","Стрим разработки агента на Claude Agent SDK/LangChain","Интервью с основателем AI Automation Agency","Разбор реального промпта продакшн-агента"],
+    read:["Документация Claude Agent SDK / LangChain","Блог о промпт-инжиниринге и агентных системах","Кейсы автоматизации бизнес-процессов (блоги компаний)","«The Mom Test» Роб Фитцпатрик — для продаж автоматизации","Гайд по проектированию AI-воркфлоу"],
+    portfolio:["3 работающие автоматизации с описанием эффекта","Прототип AI-агента с системным промптом","Кейс с расчётом ROI для условного клиента","Профиль на GitHub с примерами интеграций","Видео-демо одной из автоматизаций","Оффер на 1 страницу для потенциального клиента"],
+    platforms:["Make / n8n","GitHub","LinkedIn","Kwork / Upwork","Product Hunt","Профильный Telegram-чат по AI-автоматизации"],
+    people:["AI Automation-специалист с реальными кейсами","Владелец малого бизнеса (потенциальный клиент)","AI-инженер, разрабатывающий агентов","Консультант по AI-внедрению","Founder AI Automation Agency","Участник профильного комьюнити"],
+    skills:["No-code автоматизация","Работа с API нейросетей","Проектирование агентных цепочек","Картирование бизнес-процессов","Function calling","Работа с векторными базами","Расчёт ROI","Презентация решения клиенту","Тестирование AI-агента","Промпт-инжиниринг","Работа с вебхуками","Базовый Python для интеграций","Оценка стоимости автоматизации","Продажа AI-решений","Работа с CRM","Документирование агентной логики"]},
+  design:{
+    learn:["Основы Figma (Auto Layout, компоненты, стили)","Принципы UX-исследований","Юзабилити-тестирование","Дизайн-системы и токены","Основы типографики и сеток","Прототипирование и интерактивность","Accessibility (доступность интерфейсов)","Продуктовые метрики для дизайнера"],
+    watch:["Разбор редизайна известного продукта","Стрим дизайнера, проектирующего экран в реальном времени","Доклад с конференции по UX/UI","Кейс дизайн-системы крупной компании","Запись юзабилити-тестирования","Интервью с Head of Design"],
+    read:["«Не заставляйте меня думать» Стив Круг","«Дизайн привычных вещей» Дон Норман","Material Design / Human Interface Guidelines","«Refactoring UI» Адам Уотан и Стив Шогер","Блог дизайнера на Medium/VC.ru"],
+    portfolio:["3-4 кейса с описанием задачи, процесса и результата","Файл Figma с оформленной дизайн-системой","Прототип с интерактивными переходами","Профиль на Behance/Dribbble","До/после редизайна экрана","Результаты юзабилити-теста своей работы"],
+    platforms:["Behance","Dribbble","Figma Community","LinkedIn","hh.ru (UX/UI дизайнер)","Профильный дизайн-чат"],
+    people:["Практикующий UX/UI дизайнер","Product Designer в компании","UX-исследователь","Дизайн-лид небольшой команды","Frontend-разработчик — для стыка дизайна и кода","Участник дизайн-комьюнити"],
+    skills:["Figma и Auto Layout","Wireframing","UX-исследования","Прототипирование","Работа с дизайн-системой","Юзабилити-тестирование","Типографика и сетки","Accessibility","Презентация дизайн-решений","Работа с фидбэком","Адаптивный дизайн","Микроанимации в интерфейсе","Работа с реальным контентом","Handoff разработчикам","5-секундный тест","Аналитика поведения пользователей"]},
+  graphic3d:{
+    learn:["Основы композиции и цвета","Типографика в графическом дизайне","Основы Blender (моделирование, материалы)","Принципы анимации (тайминг, easing)","Работа с After Effects","Брендбук и гайдлайны","Текстурирование и освещение в 3D","Экспорт под разные форматы (веб, печать, видео)"],
+    watch:["Спидарт практикующего графического дизайнера","Туториал по Blender для новичков","Разбор motion-заставки известного бренда","Стрим художника, создающего 3D-сцену","Кейс ребрендинга компании","Доклад с конференции по графическому дизайну"],
+    read:["«Логотип и фирменный стиль» Дэвид Эйри","«Grid systems in Graphic Design» Йозеф Мюллер-Брокманн","Документация Blender","Вводные материалы Blender Guru","Портфолио-разборы на Behance"],
+    portfolio:["3-4 авторские композиции в едином стиле","Логотип с гайдлайном применения","Короткая motion-заставка (5-10 секунд)","3D-визуализация объекта","Профиль на Behance/ArtStation","Кейс с описанием брифа и решения"],
+    platforms:["Behance","ArtStation","Dribbble","Instagram","Kwork / Fiverr","Профильный чат дизайнеров"],
+    people:["Практикующий графический дизайнер","3D-художник","Motion-дизайнер","Арт-директор рекламного агентства","Продакшн-специалист по печати","Участник дизайн-комьюнити"],
+    skills:["Композиция и цвет","Типографика","Работа в Blender","Принципы анимации","Работа с After Effects","Брендинг и гайдлайны","Текстурирование","Освещение и рендер","Подготовка файлов под печать","Подготовка файлов под веб","Презентация работы клиенту","Работа с брифом","Скорость исполнения (спидарт)","Составление мудборда","Работа с референсами","Экспорт в разные форматы"]},
+  aicreative:{
+    learn:["Промпт-инжиниринг для изображений (Midjourney/Flux)","Промпт-инжиниринг для видео (Runway/Kling/Veo)","Основы композиции для AI-генераций","Постобработка AI-изображений","Синхронизация AI-музыки с видео","Работа с AI-озвучкой (ElevenLabs)","Права и этика AI-контента","Сборка AI-креатива в единый ролик"],
+    watch:["Разбор вирусного AI-ролика — как он сделан","Туториал по конкретному AI-инструменту (Midjourney/Runway)","Сравнение 2 AI-видео-инструментов на одной задаче","Кейс бренда, использовавшего AI-креатив в рекламе","Стрим AI-креатора, собирающего проект","Интервью с AI-художником"],
+    read:["Документация Midjourney / Runway / Suno","Блог об AI-креативе и генеративном искусстве","Гайд по промпт-инжинирингу для визуала","Кейсы брендов с AI-рекламой","Community-гайды (Discord Midjourney/Runway)"],
+    portfolio:["Серия из 5 AI-креативов в едином стиле","Один AI-ролик под конкретный бриф","Промпт-лог с финальными результатами","Профиль в Instagram/Behance с AI-работами","Кейс «AI-креатив для бренда»","Сравнение «до и после» постобработки"],
+    platforms:["Midjourney / Discord","Runway","Behance","Instagram","Kwork / Fiverr","Профильный AI-креатив чат"],
+    people:["Практикующий AI-креатор","Маркетолог, использующий AI-контент","Классический дизайнер/видеограф — для сравнения подходов","Владелец бренда, ищущий AI-контент","Участник Discord-комьюнити AI-инструмента","AI-исследователь генеративных моделей"],
+    skills:["Промпт-инжиниринг для изображений","Промпт-инжиниринг для видео","Композиция AI-генераций","Постобработка","Работа с AI-музыкой","Работа с AI-озвучкой","Сборка финального ролика","Понимание ограничений AI-инструментов","Брендинг через AI-визуал","Работа с референсами","Итеративное уточнение промпта","Управление несколькими AI-инструментами","Этика и права AI-контента","Презентация AI-кейса клиенту","Скорость генерации вариантов","Оценка себестоимости AI-проекта"]},
+  video:{
+    learn:["Сценарирование короткого видео","Основы операторской съёмки на телефон/камеру","Монтаж в CapCut/Premiere Pro","Работа со светом и звуком","Заголовки и обложки, которые цепляют","SEO для YouTube","Основы прямых эфиров","Аналитика просмотров и удержания"],
+    watch:["Влог практикующего видеомейкера о росте канала","Разбор вирусного ролика — что сработало","Туториал по монтажу в выбранном редакторе","Стрим успешного создателя контента","Кейс роста канала с нуля","Интервью с продюсером YouTube-канала"],
+    read:["«Сториномика» Роберт Макки и Том Джерас","«На крючке» Нир Эяль","Блог о росте на YouTube/TikTok","YouTube Creator Academy","Кейсы небольших каналов о первых 1000 подписчиков"],
+    portfolio:["3 связанных ролика в едином формате","Медиакит на 1 страницу","Профиль канала с оформленным описанием","Скриншоты аналитики роста (просмотры, удержание)","Кейс «от идеи до 1000 просмотров»","Подборка лучших моментов (шоурил)"],
+    platforms:["YouTube","TikTok","Instagram","Twitch","VK Видео","Профильный чат видеомейкеров"],
+    people:["Практикующий видеоблогер/креатор","Видеомонтажёр с опытом","Продюсер YouTube-канала","SMM-специалист (для дистрибуции)","Оператор/фотограф","Участник комьюнити видеомейкеров"],
+    skills:["Сценарирование видео","Съёмка","Монтаж","Работа со звуком","Цветокоррекция","Заголовки и обложки","SEO для видео","Аналитика канала","Работа с трендами","Публичные выступления на камеру","Работа с комьюнити зрителей","Построение медиакита","Питчинг брендам","Планирование контент-плана","Работа с оборудованием","Прямые эфиры"]},
+  content:{
+    learn:["Структура продающего текста (AIDA, PAS)","Основы SEO-копирайтинга","Сторителлинг в текстах","Работа с тоном бренда (tone of voice)","Копирайтинг для соцсетей и Telegram","UX-райтинг (тексты в интерфейсах)","Редактура и вычитка текста","Работа с ТЗ и брифами клиентов"],
+    watch:["Разбор сильного продающего текста построчно","Интервью с практикующим копирайтером","Стрим редактуры текста в реальном времени","Кейс роста Telegram-канала через контент","Доклад о сторителлинге в маркетинге","Разбор рассылок успешных брендов"],
+    read:["«Пиши, сокращай» Максим Ильяхов","«Копирайтинг с нуля» Дэн Кеннеди","Блог Главреда","Рассылки практикующих копирайтеров","Кейсы редакторов на VC.ru"],
+    portfolio:["5 текстов в разных форматах (пост, статья, лендинг, email, сценарий)","Кейс с описанием ТЗ и результата","Контент-план на неделю для Telegram-канала","Профиль на бирже копирайтинга с примерами","До/после редактуры чужого текста","Портфолио-сайт или PDF с подборкой работ"],
+    platforms:["Telegram","VC.ru","Kwork / Text.ru","LinkedIn","Хабр","Профильный чат копирайтеров"],
+    people:["Практикующий копирайтер","Контент-маркетолог в компании","Редактор издания/блога","SMM-менеджер","Владелец Telegram-канала","Участник профильного чата"],
+    skills:["Структура продающего текста","SEO-копирайтинг","Сторителлинг","Tone of voice","Копирайтинг для соцсетей","UX-райтинг","Редактура текста","Работа с брифом","Заголовки, которые цепляют","Адаптация текста под форматы","Работа с обратной связью","Проверка читаемости текста","Работа с фактурой и цифрами","Копирайтинг для email","Сценарирование для видео","Контент-планирование"]},
+  marketing:{
+    learn:["Основы performance-маркетинга","Настройка рекламных кабинетов (Meta/Яндекс.Директ)","Воронки продаж и их метрики","A/B-тестирование креативов","Основы SMM-стратегии","Аналитика (Google Analytics/Яндекс.Метрика)","Юнит-экономика маркетинга (CAC, LTV)","Копирайтинг для рекламы"],
+    watch:["Разбор рекламной кампании известного бренда","Стрим настройки рекламного кабинета от практика","Доклад с маркетинговой конференции","Кейс роста продаж через таргетированную рекламу","Интервью с performance-маркетологом","Разбор воронки продаж успешного продукта"],
+    read:["«Взлом маркетинга» Райан Холидей","«Building a StoryBrand» Дональд Миллер","Блог VC.ru по маркетингу","Документация Meta Ads / Яндекс.Директ","Кейсы агентств по перформанс-маркетингу"],
+    portfolio:["3 кейса с результатами рекламных кампаний (даже учебных)","Разбор воронки продаж с метриками","Презентация маркетинговой стратегии для условного продукта","Профиль на VC.ru/LinkedIn с публикациями","Скриншоты аналитики тестовой кампании","Портфолио креативов и текстов объявлений"],
+    platforms:["Meta Ads Manager","Яндекс.Директ","VC.ru","LinkedIn","hh.ru (маркетолог)","Профильный маркетинговый чат"],
+    people:["Практикующий performance-маркетолог","Таргетолог с реальными кейсами","Маркетинг-директор небольшой компании","SMM-специалист","Аналитик рекламных кампаний","Владелец бизнеса (потенциальный клиент)"],
+    skills:["Настройка рекламных кампаний","Аналитика и метрики","Построение воронок","A/B-тестирование","SMM-стратегия","Копирайтинг для рекламы","Работа с бюджетом кампании","Сегментация аудитории","Ретаргетинг","Юнит-экономика маркетинга","Презентация результатов клиенту","Работа с креативами","Email-маркетинг","Работа с CRM","Прогнозирование результатов кампании","Оптимизация конверсии"]},
+  business:{
+    learn:["Основы юнит-экономики","Проверка бизнес-гипотез (customer development)","Основы работы с маркетплейсами","No-code инструменты (Bubble, Webflow, Airtable)","Основы продукт-менеджмента","Работа с поставщиками и логистикой","Ценообразование и позиционирование","Финансовое планирование малого бизнеса"],
+    watch:["Кейс запуска стартапа с нуля","Интервью с основателем небольшого e-commerce бизнеса","Разбор unit-экономики реального бизнеса","Доклад с бизнес-конференции","Стрим сборки no-code продукта","Кейс выхода на маркетплейс (Wildberries/Ozon)"],
+    read:["«Lean Startup» Эрик Рис","«The Mom Test» Роб Фитцпатрик","«Zero to One» Питер Тиль","Блог VC.ru про стартапы и бизнес","Кейсы предпринимателей в профильных сообществах"],
+    portfolio:["Описание бизнес-идеи на 1 страницу (проблема/решение/рынок)","Расчёт unit-экономики в таблице","MVP продукта (даже минимальный)","Результаты customer development интервью","Питч-дек на 5-7 слайдов","Кейс первых продаж (даже тестовых)"],
+    platforms:["Wildberries / Ozon Seller","Shopify / Tilda","Product Hunt","VC.ru","LinkedIn","Профильный чат предпринимателей"],
+    people:["Практикующий предприниматель в смежной нише","Основатель успешного маркетплейс-магазина","No-code разработчик","Инвестор/бизнес-ангел, если есть доступ","Потенциальный клиент твоей идеи","Участник бизнес-комьюнити"],
+    skills:["Проверка бизнес-гипотез","Расчёт юнит-экономики","Работа с маркетплейсами","No-code сборка продукта","Ценообразование","Работа с поставщиками","Финансовое планирование","Питчинг идеи","Customer development интервью","Работа с первыми продажами","Базовая продуктовая аналитика","Управление приоритетами","Работа с обратной связью рынка","Составление бизнес-плана","Работа с договорами (базово)","Масштабирование процесса"]},
+  finance:{
+    learn:["Чтение финансовой отчётности","Основы фондового рынка","Технический анализ графиков","Управление рисками и диверсификация","Основы бюджетирования для бизнеса","Налогообложение доходов от инвестиций/трейдинга","Финансовое моделирование в Excel","Психология принятия решений в трейдинге"],
+    watch:["Разбор отчётности публичной компании от практикующего аналитика","Интервью с частным инвестором","Стрим технического анализа графика в реальном времени","Доклад с финансовой конференции","Кейс управления личным портфелем","Разбор типичных ошибок начинающих трейдеров"],
+    read:["«Разумный инвестор» Бенджамин Грэм","«Технический анализ финансовых рынков» Джон Мэрфи","«Психология трейдинга» Марк Дуглас","Годовые отчёты публичных компаний","Блог Smart-lab по инвестициям"],
+    portfolio:["Разбор отчётности 2-3 компаний","Учебный инвестиционный портфель с обоснованием","Торговый журнал минимум за 2 недели","Финансовая модель простого бизнеса","Презентация инвестиционной идеи","Резюме/профиль с фокусом на финансовую аналитику"],
+    platforms:["TradingView","Брокерские приложения","Smart-lab","LinkedIn","hh.ru (финансовый аналитик)","Профильный чат инвесторов"],
+    people:["Частный инвестор с опытом","Финансовый аналитик в компании","Практикующий трейдер","Бухгалтер/финансовый консультант","Автор финансового блога","Участник инвестиционного чата"],
+    skills:["Чтение финансовой отчётности","Технический анализ","Управление рисками","Диверсификация портфеля","Бюджетирование","Финансовое моделирование","Расчёт доходности","Понимание налогообложения","Ведение торгового/инвестиционного журнала","Фундаментальный анализ компаний","Работа с таблицами для финансов","Психология принятия решений","Работа с брокерскими приложениями","Анализ макроэкономических новостей","Расчёт риск/прибыль по сделке","Долгосрочное финансовое планирование"]},
+  web3:{
+    learn:["Основы блокчейна и криптографии","Работа с кошельками (MetaMask) и сетями","Чтение смарт-контрактов (базово)","Токеномика проектов","Основы DeFi-протоколов","Governance и DAO-механики","Ончейн-анализ (Etherscan, Dune)","Риски и безопасность в Web3"],
+    watch:["Разбор реального DeFi-протокола","Интервью с Web3-разработчиком","Стрим анализа токеномики нового проекта","Доклад с крипто-конференции","Кейс участия в DAO","Разбор реального эксплойта протокола — для понимания рисков"],
+    read:["Whitepaper одного крупного протокола (Ethereum, Uniswap)","Документация DeFiLlama / Dune Analytics","Блог о Web3 на Mirror.xyz","«The Infinite Machine» Камила Руссо — про Ethereum","Подборка авторитетных аналитиков в крипто-Twitter/X"],
+    portfolio:["Разбор одного протокола с оценкой рисков","Ончейн-исследование адреса/проекта","Кошелёк с историей тестовых транзакций","Профиль в Web3-комьюнити (Discord/Twitter)","Кейс участия в DAO-инициативе","Простой дашборд в Dune Analytics"],
+    platforms:["MetaMask","Etherscan","Dune Analytics","Twitter/X","Discord","DeFiLlama"],
+    people:["Практикующий Web3-разработчик","DeFi-аналитик","Участник DAO","Community-менеджер крипто-проекта","Крипто-инвестор с опытом","Участник тематического Discord"],
+    skills:["Работа с криптокошельками","Основы блокчейна","Чтение смарт-контрактов","Анализ токеномики","Оценка рисков протокола","Governance-голосование","Ончейн-анализ","Работа с DeFi-протоколами","Безопасность в Web3","Понимание газа и комиссий","Работа с блокчейн-эксплорерами","Анализ whitepaper","Участие в комьюнити проекта","Основы NFT и токенизации","Мониторинг новостей Web3","Базовые SQL-запросы для Dune"]},
+  peoplesales:{
+    learn:["Техники холодных продаж","Работа с возражениями","Основы проведения интервью (для HR)","Воронка найма и оценка кандидатов","CRM и ведение сделок","Переговоры и работа с ценой","HR-аналитика и метрики","Построение долгосрочных отношений с клиентом"],
+    watch:["Разбор реального продающего звонка","Интервью с практикующим рекрутером","Стрим переговоров от опытного продавца","Доклад по HR-метрикам","Кейс закрытия крупной сделки","Разбор типичных ошибок на собеседовании"],
+    read:["«СПИН-продажи» Нил Рэкхэм","«Договориться можно обо всём» Гэвин Кеннеди","Сборник HR-практик по найму и удержанию","Блог о продажах на VC.ru","Кейсы HR-практиков в профильных Telegram-каналах"],
+    portfolio:["Запись тренировочного звонка/интервью с разбором","Скрипт продаж или структура интервью собственного авторства","Кейс закрытой (учебной) сделки или найма","Резюме с фокусом на достижения, а не обязанности","Профиль на LinkedIn с рекомендациями","Список проведённых переговоров с результатами"],
+    platforms:["LinkedIn","hh.ru","amoCRM / HubSpot","Хантфлоу","Профильный чат HR/продаж","Zoom (для интервью/звонков)"],
+    people:["Практикующий менеджер по продажам","HR-специалист/рекрутер","Руководитель отдела продаж","T&D-специалист","Кандидат, недавно прошедший найм — для взгляда с другой стороны","Участник профильного чата"],
+    skills:["Холодные звонки","Работа с возражениями","Проведение интервью","Оценка кандидатов","Ведение сделки по воронке","Работа с CRM","Переговоры","Построение отношений с клиентом","HR-аналитика","Адаптация нового сотрудника","Составление оффера","Работа с отказами","Планирование воронки найма/продаж","Презентация себя и продукта","Активное слушание","Постановка вопросов"]},
+  solo:{
+    learn:["Формулирование личного позиционирования","Основы личного бренда в соцсетях","Построение сообщества с нуля","Монетизация аудитории","Базовый маркетинг для одного человека","Работа с AI как «виртуальной командой»","Управление временем и приоритетами в одиночку","Основы продаж собственных услуг"],
+    watch:["Интервью с solo-предпринимателем о его пути","Кейс роста персонального бренда с нуля","Стрим indie hacker, запускающего продукт","Доклад про build in public","Разбор монетизации небольшого сообщества","Кейс первого клиента/дохода у соло-специалиста"],
+    read:["«The $100 Startup» Крис Гильбо","«Company of One» Пол Джарвис","Блог IndieHackers.com","«Show Your Work!» Остин Клеон","Twitter/X-тред практикующего solo-предпринимателя"],
+    portfolio:["Сформулированное позиционирование (bio, 1 предложение)","Первый созданный в одиночку продукт/услуга","История build in public (посты о процессе)","Профиль на Product Hunt / IndieHackers","Кейс первых 5-10 клиентов/подписчиков","Публичный трекер целей и результатов"],
+    platforms:["Twitter/X","Telegram","Product Hunt","IndieHackers.com","LinkedIn","Discord-комьюнити по теме"],
+    people:["Практикующий solo-предприниматель","Indie hacker с запущенным продуктом","Создатель онлайн-сообщества","Первый потенциальный клиент","Другой соло-специалист в смежной нише","Участник комьюнити по интересам"],
+    skills:["Личное позиционирование","Ведение соцсетей","Построение сообщества","Монетизация аудитории","Базовые продажи","Работа с AI-инструментами","Тайм-менеджмент в одиночку","Публичная коммуникация","Build in public","Работа с первыми клиентами","Ценообразование услуг","Базовый финансовый учёт","Нетворкинг","Устойчивость к неопределённости","Итеративный запуск продуктов","Личный бренд как актив"]},
+};
+
+
+const HOW_STEPS = [
+  {n:"Диагностика",title:"50 вопросов о тебе",desc:"Пройди тест, который анализирует интересы, мышление, характер и ценности — без «правильных» ответов."},
+  {n:"Практика",title:"7 шагов проверки профессии",desc:"Мини-симуляция реальной работы: понять профессию, освоить инструмент, решить настоящую задачу и собрать мини-проект — не теория, а практика."},
+  {n:"Путь",title:"Дорожная карта на 24 недели",desc:"Пошаговая программа на 6 месяцев с крупными чекпоинтами каждые 4 недели — что учить, что делать и как дойти до первого дохода."},
+];
+
+/* ============ STATE ============ */
+let state = {
+  screen:"home",
+  answers:[], qIndex:0, results:[], selectedSphere:null,
+  stepIndex:0, stepAnswers:[], cur:{stars:0,unexpected:null,cont:null},
+  testHistory:[], practiceHistory:[],
+  roadmap:{},
+  achievements:[],
+};
+let addedRoadmapAchv=false;
+
+function addAchievement(a){ if(!state.achievements.includes(a)) state.achievements.push(a); }
+
+/* ============ HELPERS ============ */
+const MAX_PER_SPHERE = {};
+Object.keys(SPHERES).forEach(id=>MAX_PER_SPHERE[id]=0);
+QUESTIONS.forEach(q=>{
+  const maxes = {};
+  q.o.forEach(opt=>{ Object.entries(opt.s).forEach(([id,v])=>{ maxes[id]=Math.max(maxes[id]||0,v); }); });
+  Object.entries(maxes).forEach(([id,v])=>{ MAX_PER_SPHERE[id]+=v; });
+});
+
+function computeResults(){
+  const totals = {};
+  Object.keys(SPHERES).forEach(id=>totals[id]=0);
+  state.answers.forEach(sMap=>{ Object.entries(sMap).forEach(([id,v])=>totals[id]+=v); });
+  const arr = Object.entries(totals).map(([id,score])=>{
+    const max = MAX_PER_SPHERE[id]||1;
+    let pct = Math.round((score/max)*100);
+    pct = Math.max(30, Math.min(97,pct));
+    return {id,score,pct};
+  });
+  arr.sort((a,b)=>b.pct-a.pct);
+  return arr;
+}
+
+function ring(pct,size=74,stroke=6,color="url(#g1)"){
+  const r=(size-stroke)/2, c=2*Math.PI*r, off=c-(pct/100)*c;
+  return `<div class="ring-wrap" style="width:${size}px;height:${size}px;">
+    <svg width="${size}" height="${size}">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#8b7cff"/><stop offset="100%" stop-color="#49d6c4"/>
+      </linearGradient></defs>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="rgba(255,255,255,.08)" stroke-width="${stroke}" fill="none"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}" stroke-width="${stroke}" fill="none"
+        stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/>
+    </svg>
+    <div class="ring-pct">${pct}%</div>
+  </div>`;
+}
+
+function medal(i){ return ["🥇","🥈","🥉"][i]||"🎯"; }
+
+function fillTemplate(str, sphere, extra){
+  extra = extra || {};
+  return str
+    .replace(/\{tool2\}/g, sphere.tools[1]||sphere.tools[0])
+    .replace(/\{tool\}/g, sphere.tools[0])
+    .replace(/\{skill2\}/g, sphere.skills[1]||sphere.skills[0])
+    .replace(/\{skill\}/g, sphere.skills[0])
+    .replace(/\{role\}/g, sphere.specialties[0])
+    .replace(/\{community\}/g, extra.community||'')
+    .replace(/\{platform\}/g, extra.platform||'')
+    .replace(/\{showTo\}/g, extra.showTo||'')
+    .replace(/\{name\}/g, sphere.name);
+}
+
+function buildPracticeSteps(sphere){
+  const extra = GROUP_EXTRA[sphere.group];
+  const bespoke = PRACTICE_BESPOKE[sphere.group];
+  const steps = [];
+  for(let i=0;i<7;i++){
+    const n = i+1;
+    const src = (n===3||n===4||n===6) ? bespoke[n] : GENERIC_STEP[n];
+    steps.push({
+      title: STEP_META[i].title,
+      icon: STEP_META[i].icon,
+      main: fillTemplate(src.main, sphere, extra),
+      mini: fillTemplate(src.mini, sphere, extra),
+      research: fillTemplate(src.research, sphere, extra),
+      practice: fillTemplate(src.practice, sphere, extra),
+      result: fillTemplate(src.result, sphere, extra),
+      difficulty: STEP_DIFFICULTY[i],
+    });
+  }
+  return steps;
+}
+
+function buildRoadmapWeeks(sphere){
+  const extra = GROUP_EXTRA[sphere.group];
+  const bank = ROADMAP_BANKS[sphere.group];
+  const weeks = [];
+  for(let i=0;i<24;i++){
+    const s1 = bank.skills[(i*2) % bank.skills.length];
+    const s2 = bank.skills[(i*2+1) % bank.skills.length];
+    weeks.push({
+      n:i+1,
+      main: fillTemplate(WEEK_PATTERN[i], sphere, extra),
+      learn: bank.learn[i % bank.learn.length],
+      watch: bank.watch[i % bank.watch.length],
+      read: bank.read[i % bank.read.length],
+      portfolio: bank.portfolio[i % bank.portfolio.length],
+      platform: bank.platforms[i % bank.platforms.length],
+      person: bank.people[i % bank.people.length],
+      skills: [s1,s2],
+      checkpoint: (i+1)%4===0 ? CHECKPOINTS[((i+1)/4)-1] : null,
+    });
+  }
+  return weeks;
+}
+
+/* ============ RENDER: NAV ============ */
+function renderNav(){
+  const links=[];
+  links.push(`<a class="nav-link ${state.screen==='home'?'active':''}" href="#" onclick="goHome();return false;">Главная</a>`);
+  if(state.testHistory.length>0){
+    links.push(`<a class="nav-link ${state.screen==='profile'?'active':''}" href="#" onclick="goProfile();return false;">Профиль</a>`);
+  }
+  document.getElementById('navLinks').innerHTML = links.join('');
+}
+
+/* ============ RENDER: HOME ============ */
+function renderHome(){
+  return `
+  <section class="hero wrap fadein">
+    <div class="eyebrow">✦ <span>Не тест профориентации — а система из 3 шагов</span></div>
+    <h1>Найди дело, которым <span class="grad-text">действительно</span> захочешь заниматься</h1>
+    <p>Пройди путь от диагностики до первых денег в новой профессии: тест → 7 шагов практики → 24-недельная программа.</p>
+    <button class="btn btn-primary" onclick="startQuiz()">Начать диагностику →</button>
+  </section>
+
+  <section class="wrap section-tight">
+    <div class="section-head">
+      <div class="eyebrow">Как это работает</div>
+      <h2>Три шага от растерянности до плана</h2>
+      <p>Каждый этап даёт результат, на который опирается следующий.</p>
+    </div>
+    <div class="grid3">
+      ${HOW_STEPS.map((s,i)=>`
+        <div class="card" style="animation-delay:${i*0.08}s">
+          <div class="step-num">0${i+1} · ${s.n}</div>
+          <h3>${s.title}</h3>
+          <p>${s.desc}</p>
+        </div>`).join('')}
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="num">59+</div><div class="label">направлений</div></div>
+      <div class="stat"><div class="num">50</div><div class="label">вопросов диагностики</div></div>
+      <div class="stat"><div class="num">7</div><div class="label">шагов практики</div></div>
+      <div class="stat"><div class="num">24</div><div class="label">недели дорожной карты</div></div>
+    </div>
+  </section>
+
+  <section class="wrap section-tight" style="text-align:center;">
+    <div class="section-head" style="margin-bottom:32px;">
+      <h2>Готов узнать своё направление?</h2>
+      <p>Это займёт около 10 минут. Без правильных и неправильных ответов.</p>
+    </div>
+    <button class="btn btn-primary" onclick="startQuiz()">Начать диагностику →</button>
+  </section>
+  <footer>PathFinder · AI-карьерный навигатор · сделано для тех, кто ищет своё</footer>
+  `;
+}
+function goHome(){ state.screen='home'; render(); }
+
+/* ============ RENDER: QUIZ ============ */
+function startQuiz(){
+  state.screen='quiz'; state.qIndex=0; state.answers=[]; render();
+}
+function selectAnswer(optIdx){
+  const q = QUESTIONS[state.qIndex];
+  state.answers.push(q.o[optIdx].s);
+  if(state.qIndex < QUESTIONS.length-1){
+    state.qIndex++;
+  } else {
+    finishQuiz();
+    return;
+  }
+  render();
+}
+function backQuiz(){
+  if(state.qIndex>0){ state.qIndex--; state.answers.pop(); render(); }
+  else { state.screen='home'; render(); }
+}
+function finishQuiz(){
+  state.results = computeResults();
+  state.testHistory.push({date:new Date().toLocaleDateString('ru-RU'), top: state.results.slice(0,3).map(r=>r.id)});
+  addAchievement("Прошёл диагностику");
+  state.screen='results';
+  render();
+}
+function renderQuiz(){
+  const q = QUESTIONS[state.qIndex];
+  const pct = Math.round((state.qIndex/QUESTIONS.length)*100);
+  return `
+  <div class="quiz-shell">
+    <div class="q-meta">
+      <span class="q-count mono">Вопрос ${state.qIndex+1} / ${QUESTIONS.length}</span>
+      <span class="q-count mono">${pct}%</span>
+    </div>
+    <div class="progress-outer"><div class="progress-inner" style="width:${pct}%"></div></div>
+    <div class="q-text">${q.t}</div>
+    <div class="opt-list">
+      ${q.o.map((o,i)=>`<button class="opt" style="animation-delay:${i*0.05}s" onclick="selectAnswer(${i})">${o.t}</button>`).join('')}
+    </div>
+    <div class="quiz-nav">
+      <button class="link-btn" onclick="backQuiz()">← Назад</button>
+      <span></span>
+    </div>
+  </div>`;
+}
+
+/* ============ RENDER: RESULTS ============ */
+function renderResults(){
+  const top3 = state.results.slice(0,3);
+  return `
+  <div class="results-shell fadein">
+    <div class="section-head">
+      <div class="eyebrow">Готово ✦</div>
+      <h2>Твои результаты</h2>
+      <p>На основе твоих ответов вот три направления, которые подходят тебе больше всего.</p>
+    </div>
+    ${top3.map((r,i)=>{
+      const sp = SPHERES[r.id];
+      return `
+      <div class="result-card" style="animation-delay:${i*0.1}s">
+        <div class="result-top">
+          <span class="medal">${medal(i)}</span>
+          ${ring(r.pct)}
+          <div class="result-title">
+            <h3>${sp.emoji} ${sp.name}</h3>
+            <div class="cat">${GROUPS[sp.group].label}</div>
+          </div>
+        </div>
+        <div class="result-body">
+          <p style="margin:0 0 14px;color:var(--text-dim);font-size:14.5px;line-height:1.6;">${sp.desc}</p>
+          <div class="reasons">
+            ${sp.why.map(w=>`<span class="reason-chip">✔ ${w}</span>`).join('')}
+          </div>
+          <div class="spec-list">
+            ${sp.specialties.map(s=>`<span class="spec-chip">${s}</span>`).join('')}
+          </div>
+          <div class="pros-cons">
+            <div class="pc-col pros"><h5>Плюсы</h5><ul>${sp.pros.map(p=>`<li>${p}</li>`).join('')}</ul></div>
+            <div class="pc-col cons"><h5>Минусы</h5><ul>${sp.cons.map(c=>`<li>${c}</li>`).join('')}</ul></div>
+          </div>
+          <div class="spec-list">
+            ${sp.tools.map(t=>`<span class="tool-chip">${t}</span>`).join('')}
+          </div>
+          <div class="income-box"><b>Первый доход:</b> ${sp.firstIncome}</div>
+          <button class="btn btn-primary" style="margin-top:18px;" onclick="tryDirection('${r.id}')">Попробовать направление →</button>
+        </div>
+      </div>`;
+    }).join('')}
+    <div class="center-actions">
+      <button class="link-btn" onclick="startQuiz()">Пройти диагностику ещё раз</button>
+    </div>
+  </div>`;
+}
+function tryDirection(id){
+  state.selectedSphere = id;
+  state.stepIndex = 0;
+  state.stepAnswers = [];
+  state.cur = {stars:0,unexpected:null,cont:null};
+  state.screen='practice';
+  render();
+}
+
+/* ============ RENDER: PRACTICE (7 steps) ============ */
+function setStars(n){ state.cur.stars=n; renderPracticeInPlace(); }
+function setUnexpected(v){ state.cur.unexpected=v; renderPracticeInPlace(); }
+function setCont(v){ state.cur.cont=v; renderPracticeInPlace(); }
+function renderPracticeInPlace(){ document.getElementById('app').innerHTML = shell(renderPractice()); }
+
+function nextStep(){
+  state.stepAnswers.push({...state.cur});
+  if(state.stepIndex < 6){
+    state.stepIndex++;
+    state.cur = {stars:0,unexpected:null,cont:null};
+    render();
+  } else {
+    finishPractice();
+  }
+}
+function finishPractice(){
+  const contYes = state.stepAnswers.filter(d=>d.cont===true).length;
+  const wantsToContinue = contYes >= 4;
+  state.practiceHistory.push({sphere:state.selectedSphere, continued:wantsToContinue, date:new Date().toLocaleDateString('ru-RU')});
+  addAchievement("Прошёл практику из 7 шагов");
+  if(wantsToContinue){
+    state.screen='roadmap';
+  } else {
+    state.screen='practice-result-negative';
+  }
+  render();
+}
+function renderPracticeNegative(){
+  const tried = state.practiceHistory.map(p=>p.sphere);
+  const next = state.results.find(r=>!tried.includes(r.id));
+  return `
+  <div class="day-card fadein" style="text-align:center;">
+    <div class="task-box">
+      <h3>Похоже, это не совсем твоё — и это нормальный результат</h3>
+      <p style="margin-top:12px;">Ты честно прошёл(ла) 7 шагов практики в направлении «${SPHERES[state.selectedSphere].name}» — это уже большая ценность. Многие пропускают этот шаг и тратят годы, прежде чем это понять.</p>
+      ${next ? `<div style="margin-top:26px;">
+        <button class="btn btn-primary" onclick="tryDirection('${next.id}')">Попробовать «${SPHERES[next.id].name}» →</button>
+      </div>` : `<p style="margin-top:20px;color:var(--text-faint);">Ты попробовал все направления из своего топ-3. Пройди диагностику заново, чтобы открыть новые варианты.</p>`}
+      <div style="margin-top:16px;">
+        <button class="link-btn" onclick="goResults()">← Вернуться к результатам</button>
+      </div>
+    </div>
+  </div>`;
+}
+function goResults(){ state.screen='results'; render(); }
+
+function renderPractice(){
+  const sp = SPHERES[state.selectedSphere];
+  const steps = buildPracticeSteps(sp);
+  const step = steps[state.stepIndex];
+  const dotsHtml = Array.from({length:7}).map((_,i)=>{
+    let cls='day-dot';
+    if(i<state.stepIndex) cls+=' done';
+    else if(i===state.stepIndex) cls+=' current';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+  const c = state.cur;
+  const canNext = c.stars>0 && c.unexpected!==null && c.cont!==null;
+  const diffStars = Array.from({length:3}).map((_,i)=> i<step.difficulty ? '★' : '<span class="off">★</span>').join('');
+  return `
+  <div class="day-card fadein">
+    <div class="day-badge">${sp.emoji} ${sp.name} · Практика · Шаг ${state.stepIndex+1}/7</div>
+    <div class="day-dots">${dotsHtml}</div>
+    <div class="task-box">
+      <div class="step-top">
+        <h3>${step.icon} Шаг ${state.stepIndex+1} — ${step.title}</h3>
+        <span class="diff-stars">${diffStars}</span>
+      </div>
+      <div class="result-chip">🏆 Итог шага: ${step.result}</div>
+      <div class="task-section"><div class="task-section-label">🎯 Основное задание</div><p>${step.main}</p></div>
+      <div class="task-section"><div class="task-section-label">⚡ Мини-задание</div><p>${step.mini}</p></div>
+      <div class="task-section"><div class="task-section-label">🔍 Исследование</div><p>${step.research}</p></div>
+      <div class="task-section"><div class="task-section-label">🛠 Практика</div><p>${step.practice}</p></div>
+      <div class="feedback-block">
+        <div class="f-row">
+          <div class="f-label">💡 Что понравилось? (оцени по звёздам)</div>
+          <div class="stars">
+            ${[1,2,3,4,5].map(n=>`<button class="star ${n<=c.stars?'on':''}" onclick="setStars(${n})">★</button>`).join('')}
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-label">💡 Оказалось ли что-то неожиданным?</div>
+          <div class="toggle2">
+            <button class="${c.unexpected===true?'sel':''}" onclick="setUnexpected(true)">Да</button>
+            <button class="${c.unexpected===false?'sel':''}" onclick="setUnexpected(false)">Нет</button>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-label">💡 Хотел(а) бы заниматься этим дальше?</div>
+          <div class="toggle2">
+            <button class="${c.cont===true?'sel':''}" onclick="setCont(true)">Да</button>
+            <button class="${c.cont===false?'sel':''}" onclick="setCont(false)">Нет</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="center-actions">
+      <button class="btn btn-primary" ${canNext?'':'disabled'} onclick="nextStep()">${state.stepIndex<6?'Следующий шаг →':'Завершить практику →'}</button>
+    </div>
+  </div>`;
+}
+
+/* ============ RENDER: ROADMAP (24 weeks) ============ */
+function toggleWeek(sphereId, weekIdx){
+  state.roadmap[sphereId] = state.roadmap[sphereId] || {};
+  state.roadmap[sphereId][weekIdx] = !state.roadmap[sphereId][weekIdx];
+  if(!addedRoadmapAchv){ addAchievement("Начал 24-недельную дорожную карту"); addedRoadmapAchv=true; }
+  document.getElementById('app').innerHTML = shell(renderRoadmap());
+}
+function renderRoadmap(){
+  const sp = SPHERES[state.selectedSphere];
+  const extra = GROUP_EXTRA[sp.group];
+  const weeks = buildRoadmapWeeks(sp);
+  const doneMap = state.roadmap[state.selectedSphere] || {};
+  const doneCount = Object.values(doneMap).filter(Boolean).length;
+  const pct = Math.round(doneCount/24*100);
+  const learnedSkills = [];
+  weeks.forEach((w,i)=>{ if(doneMap[i]){ w.skills.forEach(s=>{ if(!learnedSkills.includes(s)) learnedSkills.push(s); }); } });
+  return `
+  <div class="roadmap-shell fadein">
+    <div class="roadmap-head">
+      <div class="eyebrow">${sp.emoji} ${sp.name} · Твой путь</div>
+      <h2 style="font-size:30px;font-weight:800;margin:14px 0 4px;">Дорожная карта на 24 недели</h2>
+      <p style="color:var(--text-dim);">Полноценная образовательная программа до первого дохода в «${sp.name}».</p>
+      <div class="overall-bar"><div class="overall-fill" style="width:${pct}%"></div></div>
+      <div style="margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--teal);">${doneCount}/24 недель выполнено · ${pct}%</div>
+    </div>
+    ${learnedSkills.length? `<div class="skills-panel"><h4>После пройденных недель ты умеешь</h4>${learnedSkills.map(s=>`<span class="skill-chip">✔ ${s}</span>`).join('')}</div>` : ''}
+    ${weeks.map((w,i)=>{
+      const done = !!doneMap[i];
+      let html = `<div class="week-card ${done?'done':''}" style="animation-delay:${Math.min(i,10)*0.03}s">
+        <div class="week-head"><h3>Неделя ${w.n}</h3><span class="week-num">${w.n}/24</span></div>
+        <div class="week-main">🛠 <b>Что сделать:</b> ${w.main}</div>
+        <div class="week-grid">
+          <div>📚 <b>Изучить:</b> ${w.learn}</div>
+          <div>🎥 <b>Посмотреть:</b> ${w.watch}</div>
+          <div>📖 <b>Прочитать:</b> ${w.read}</div>
+          <div>💼 <b>В портфолио:</b> ${w.portfolio}</div>
+          <div>🌍 <b>Зарегистрироваться:</b> ${w.platform}</div>
+          <div>👥 <b>Пообщаться:</b> ${w.person}</div>
+          <div style="grid-column:1/-1;">🧠 <b>Навыки недели:</b> ${w.skills.join(', ')}</div>
+        </div>
+        <div class="check-item ${done?'checked':''}" onclick="toggleWeek('${state.selectedSphere}',${i})">
+          <div class="checkbox ${done?'on':''}">${done?'✓':''}</div>
+          <div>${done? '🎯 Итог недели: неделя пройдена — навыки выше закреплены' : 'Отметить неделю пройденной'}</div>
+        </div>
+      </div>`;
+      if(w.checkpoint){
+        const cpTitle = fillTemplate(w.checkpoint.title, sp, extra);
+        const cpDesc = fillTemplate(w.checkpoint.desc, sp, extra);
+        html += `<div class="checkpoint-banner ${done?'reached':''}">
+          <div class="cp-icon">🎯</div>
+          <div><h4>${cpTitle}</h4><p>${cpDesc}</p></div>
+        </div>`;
+      }
+      return html;
+    }).join('')}
+    <div class="center-actions">
+      <button class="link-btn" onclick="goProfile()">Перейти в профиль →</button>
+    </div>
+  </div>`;
+}
+
+/* ============ RENDER: PROFILE ============ */
+function goProfile(){ state.screen='profile'; render(); }
+function renderProfile(){
+  const last = state.testHistory[state.testHistory.length-1];
+  return `
+  <div class="profile-shell fadein">
+    <div class="section-head" style="text-align:left;max-width:none;margin-bottom:32px;">
+      <div class="eyebrow">Личный кабинет</div>
+      <h2>Твой прогресс</h2>
+    </div>
+    <div class="profile-grid">
+      <div class="mini-card">
+        <h4>История диагностики</h4>
+        ${state.testHistory.length===0?'<div class="empty">Пока нет пройденных тестов</div>':
+          state.testHistory.slice().reverse().map(h=>`
+          <div class="hist-row"><span>${h.date}</span><span>${h.top.map(id=>SPHERES[id].emoji).join(' ')} ${h.top.map(id=>SPHERES[id].name).join(', ')}</span></div>
+          `).join('')}
+      </div>
+      <div class="mini-card">
+        <h4>Практика из 7 шагов</h4>
+        ${state.practiceHistory.length===0?'<div class="empty">Пока нет пройденных практик</div>':
+          state.practiceHistory.slice().reverse().map(p=>`
+          <div class="hist-row"><span>${SPHERES[p.sphere].emoji} ${SPHERES[p.sphere].name}</span><span>${p.continued?'✅ подошло':'⛔ не моё'}</span></div>
+          `).join('')}
+      </div>
+      <div class="mini-card">
+        <h4>Текущее направление</h4>
+        ${state.selectedSphere?`
+          <div style="font-size:15px;margin-bottom:10px;">${SPHERES[state.selectedSphere].emoji} ${SPHERES[state.selectedSphere].name}</div>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="state.screen='roadmap';render();">Открыть дорожную карту</button>
+        `:'<div class="empty">Направление ещё не выбрано</div>'}
+      </div>
+      <div class="mini-card">
+        <h4>Достижения</h4>
+        ${state.achievements.length===0?'<div class="empty">Пока нет достижений</div>':
+          state.achievements.map(a=>`<span class="achv">🏆 ${a}</span>`).join('')}
+      </div>
+    </div>
+    <div class="center-actions">
+      <button class="btn btn-primary" onclick="startQuiz()">Пройти диагностику заново</button>
+    </div>
+  </div>`;
+}
+
+/* ============ MASTER RENDER ============ */
+function shell(inner){ return inner; }
+function render(){
+  let html='';
+  if(state.screen==='home') html = renderHome();
+  else if(state.screen==='quiz') html = renderQuiz();
+  else if(state.screen==='results') html = renderResults();
+  else if(state.screen==='practice') html = renderPractice();
+  else if(state.screen==='practice-result-negative') html = renderPracticeNegative();
+  else if(state.screen==='roadmap') html = renderRoadmap();
+  else if(state.screen==='profile') html = renderProfile();
+  document.getElementById('app').innerHTML = html;
+  renderNav();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+render();
+</script>
+</body>
+</html>
